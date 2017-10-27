@@ -993,10 +993,10 @@ $offset *= $counter; //这与 $offset = $offset * $counter 是同样的
 
 |  运算符 | 等价 |
 |  ----- | -----|
-|  `12 的二进制`  |  1100 |
-|  `9 的二进制`  |  ++++ |
-|  `相同的相加为0，不同的相加为1`  |  1001 |
-|  `5 的二进制`  |  0101 |
+|  `12 的二进制`  |  1 1 0 0 |
+|  `相同的相加为0，不同的相加为1`  |  + + + + |
+|  `9 的二进制`  |  1 0 0 1 |
+|  `5 的二进制`  |  0 1 0 1 |
 
 12 的二进制&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1 1 0 0
 
