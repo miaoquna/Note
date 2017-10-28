@@ -14,19 +14,19 @@
 - [PHP5](#php5)
 	- [1. 新增特性](#1-新增特性 "新增特性")
 		- [1.1 类的高级用法](#11-类的高级用法)
-			- [instanceof 操作符](#instanceof-操作符)
-			- [final 关键字](#final-关键字)
-			- [clone 关键字](#clone-关键字)
-			- [const 关键字](#const-关键字)
-			- [静态成员和静态方法](#静态成员和静态方法)
-			- [抽象类](#抽象类)
-			- [抽象方法](#抽象方法)
-			- [对象类型提示](#对象类型提示)
-			- [函数调用](#函数调用)
-			- [继承类实现Iterator接口](#继承类实现Iterator接口)
-			- [__autoload()方法](#__autoload方法)
-			- [foreach 函数支持引用](#foreach-函数支持引用)
-			- [Tidy扩展](#tidy扩展 "Tidy扩展")
+			- [1.1.1 instanceof 操作符](#111-instanceof-操作符)
+			- [1.1.2 final 关键字](#112-final-关键字)
+			- [1.1.3 clone 关键字](#113-clone-关键字)
+			- [1.1.4 const 关键字](#114-const-关键字)
+			- [1.1.5 静态成员和静态方法](#115-静态成员和静态方法)
+			- [1.1.6 抽象类](#116-抽象类)
+			- [1.1.7 抽象方法](#117-抽象方法)
+			- [1.1.8 对象类型提示](#118-对象类型提示)
+			- [1.1.9 函数调用](#119-函数调用)
+			- [1.1.10 继承类实现Iterator接口](#1110-继承类实现Iterator接口)
+			- [1.1.11 __autoload()方法](#1111-__autoload方法)
+			- [1.1.12 foreach 函数支持引用](#1112-foreach-函数支持引用)
+			- [1.1.13 Tidy扩展](#1113-tidy扩展 "Tidy扩展")
 	- [2. 基础用法](#2-基础用法 "基础用法")
 		- [2.1 变量](#21-变量) 
 			- [变量的间接引用](#变量的间接引用 "变量的间接引用")
@@ -345,11 +345,11 @@ class FileDownload
 
 ## 1.1 类的高级用法
 
-### instanceof 操作符
+### 1.1.1 instanceof 操作符
 
     instanceof 用于确定一个 PHP 变量是否属于某一类 class 的实例
 
-### final 关键字
+### 1.1.2 final 关键字
 
 ```php
 
@@ -367,7 +367,7 @@ class ExtendClass extends MyClass {
 
 ```
 
-### clone 关键字
+### 1.1.3 clone 关键字
 
 ```php
 
@@ -385,7 +385,7 @@ $obj_copy = colne $obj; //克隆一个对象
 
 ```
 
-### const 关键字
+### 1.1.4 const 关键字
 
 ```php
 
@@ -397,7 +397,7 @@ print MyClass::SUCESS
 
 ```
 
-### 静态成员和静态方法
+### 1.1.5 静态成员和静态方法
 
 ```php
 
@@ -422,7 +422,7 @@ class Singleton {
 
 ```
 
-### 抽象类
+### 1.1.6 抽象类
 
 ```php
 
@@ -436,7 +436,7 @@ abstract class MyBaseClass{
 	
 ```
 
-### 抽象方法
+### 1.1.7 抽象方法
 
 
 ```php
@@ -449,7 +449,7 @@ abstract class MyClass{
 ```
 
 
-### 对象类型提示
+### 1.1.8 对象类型提示
     
     
 ```php
@@ -463,7 +463,7 @@ function expectsMyClass(MyClass $obj) {
 
 ```
 
-### 函数调用
+### 1.1.9 函数调用
 
 ```php
 
@@ -475,7 +475,7 @@ $dummy->method2();
 $obj->method()->method2();
 
 ```
-### 继承类实现Iterator接口
+### 1.1.10 继承类实现Iterator接口
 
 ```php
 
@@ -489,7 +489,7 @@ foreach($obj as $value) {
 ```
 
 
-### __autoload方法
+### 1.1.11 __autoload方法
 
 在PHP5中，你可以定义一个__autoload()函数，它在你需要使用一个未定义类的时候自动调用。通过调用这个函数，脚本引擎在PHP抛出类未定义的错误之前提供最后一次加载类的机会：
 
@@ -520,7 +520,7 @@ try {
 ```
 
 
-### foreach 函数支持引用
+### 1.1.12 foreach 函数支持引用
 
 ```php
 
@@ -545,12 +545,12 @@ my_func();
 
 ```
 
-### 新增SOAP支持
+### 1.1.13 新增SOAP支持
 
 SOAP 是一种简单的基于 XML 的协议，它使应用程序通过 HTTP 来交换信息。在我们的 SOAP 教程中，你将了解到什么是 SOAP，以及它如何在应用程序之间交换信息。
 
 
-### Tidy扩展
+### 1.1.14 Tidy扩展
 
 用于修复和美化html
 
