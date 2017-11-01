@@ -71,7 +71,30 @@
 		- [3.4 类的常量](#3.4 类的常量)
 		- [3.5 克隆对象](#35-克隆对象)
 		- [3.6 多态](#36-多态)
-		- [3.7 parent::和self::](#37-parent::和self::)
+		- [3.7 parent::和self::](#37-parent和self)
+		- [3.8 instanceof 运算符](#38-instanceof-运算符)
+		- [3.9 abstract方法和类](#39-abstract方法和类)
+		- [3.10 接口](#310-接口)
+		- [3.11 接口的继承](#311-接口的继承)
+		- [3.12 final 方法](#312-final-方法)
+		- [3.13 final 类](#313-final-类)
+		- [3.14 __toString() 方法](#314-__toString()-方法)
+		- [3.15 异常处理](#315-异常处理)
+		- [3.16 __autoload()](#316-__autoload())
+	- [4. 面向对象编程和设计模式](#4-面向对象编程和设计模式)
+		- [4.1 重载性能](#41-重载性能)
+			- [4.1.1 属性和方法的重载](#411-属性和方法的重载)
+			- [4.1.2 使用数组语法访问的重载](#412-使用数组语法访问的重载)
+		- [4.2 迭代器](#42-迭代器)
+		- [4.3 设计模式](#43-设计模式)
+			- [4.3.1 策略模式](#431-策略模式)
+			- [4.3.2 单件模式](#432-单件模式)
+			- [4.3.3 工厂模式](#433-工厂模式)
+			- [4.3.4 观察者模式](#434-观察者模式)
+		- [4.4 映射](#44-映射)
+			- [4.4.1 映射api](#441-映射api)
+			- [4.4.2 映射举例](#442-映射举例)
+			- [4.4.3 使用映射执行授权模式](#443-使用映射执行授权模式)
 	
 ----------
 
@@ -1672,3 +1695,394 @@ echo $obj3->var;
 `php不能多继承，只能通过接口来实现`
 
 ## 3.7 parent::和self::
+
+self:: 指向当前的类（注意不是类的实例），而且它通常用来访问静态成员、方法和常量。
+parent::指向父类，而且它经常被用来调用父类的构造函数和方法，它也可以用来访问父类的成员和常量。你应该用parent::而不是父类的某个具体名字，这是为了让你可以方便地更改你的类的层次，因为你不用固定写入某个父类的名字。
+
+## 3.8 instanceof 运算符
+
+用来判断变量是否是某一个类（也包括父类）的实例
+```php
+if ($shape instanceof Rectangle) {
+	//判断$shape是否是 Rectangle 类的一个实例
+}
+```
+`注意：instanceof还检查一个对象是否执行了一个接口`
+
+## 3.9 abstract方法和类
+
+在设计类的层次时，你可能会想部分地保留一些方法给继承类执行。抽象类和抽象方法不做具体实现，交给子类来实现
+
+## 3.10 接口
+
+类的继承让你可以描述几个类之间的父与子的关系。但是，你可能会经常需要增加额外的接口到类中，基本上来说是类需要附带额外的约定。PHP选择了接口而不是多重继承，接口可以让你指定类需要附带的额外的约定。声明一个接口与生命一个类是类似的，但是他只包含函数原形（没有执行体）和常量。任何一个实现这个接口的类将自动获得这个接口定义的常量并且，作为实现的类需要给接口的函数原型提供函数定义，接口的函数都是抽象的。
+
+实现了一个接口的类都将与该接口拥有一个唯一关系，例如类A执行接口myInterface,下面的代码将打印出‘$obj is-A myInterface’
+class A implements B,C,..{
+}
+$obj = new A();
+if ($obj instanceof myInterface) {
+echo ‘$obj is-A myInterface’;
+}
+
+```php
+interface Log {
+    //日志类
+    function write();
+}
+class FileLog implements Log {
+    function write()
+    {
+        //这里必须要实现接口的方法
+        // TODO: Implement write() method.
+        echo 'is filelog';
+    }
+}
+class MemcacheLog implements Log {
+    function write()
+    {
+        //这里必须要实现接口的方法
+        // TODO: Implement write() method.
+        echo 'is memcachelog';
+    }
+}
+```
+`注意：接口总是被认为是public的；因此，你不能在定义接口时，给接口的函数原型设置访问修饰符`
+`注意：你不能实现互相冲突的多重接口（例如，接口如果定义相同的常量和方法）`
+
+## 3.11 接口的继承
+
+接口是可以从别的接口继承来的，继承接口的语法与继承类的语法类似，但是接口可以允许多重继承
+
+```php
+
+interface Log {
+    //日志类
+    function write();
+}
+interface FileLog extends Log {
+    function fileOpen();
+}
+
+```
+
+与类实现接口类似，一个接口只能继承与自己互相不冲突的接口（方法或者常量不冲突）
+
+## 3.12 final 方法
+
+确保类的方法不能被继承类改写，通过 final 访问控制符来声明一个方法是不可重写的。
+
+```php
+class Log {
+    final function write() {
+        echo 'write_log';
+    }
+}
+class FileLog extends Log {
+    function write() {
+        echo 'filelog_write';
+    }
+}
+//Fatal error: Cannot override final method Log::write() 
+```
+
+```php
+class Log {
+    final function write() {
+        echo 'write_log';
+    }
+}
+class FileLog extends Log {
+    
+}
+$filelog = new FileLog();
+$filelog->write();
+
+//final 修饰过之后方法的继承是正常的，但是不能重写，否则会报上边的错误
+```
+## 3.13 final 类
+
+与 final 方法类似，你还可以定义一个类为 final。这么做将不允许其他类继承此类
+
+final class My {
+}
+class MyChild extends My {
+}
+
+My类被声明为final，子类不能继承它。
+
+## 3.14 __toString() 方法
+
+__toString 方法用于一个类被当成字符串时应怎样回应。例如 echo $obj; 应该显示些什么。此方法必须返回一个字符串，否则将发出一条 E_RECOVERABLE_ERROR 级别的致命错误。
+```php
+class Person {
+    function __toString()
+    {
+        // TODO: Implement __toString() method.
+        return '只有定义了这个方法才能以字符串的形式打印一个类，返回内容自定义';
+    }
+}
+$obj = new Person();
+echo $obj;
+```
+
+## 3.15 异常处理
+
+大部分语言都是使用 try/catch 语法
+
+try {
+//会抛出一个异常代码
+} catch (Exception $e) {
+//会处理这个异常
+}
+Exception是顶级异常类
+
+try{}结构装入的代码可以抛出一个异常，后面可以加上一系列的 catch 语句，每一个 catch 声明哪个异常类应该调用并且在 catch 块中异常的对象应该用什么变量名来访问
+
+当一个异常被抛出后，首先到达第一个catch() 并且执行 instanceof 进行异常类比较，判断抛出的异常是否是 catch() 中包好的异常类实例。如果结果是true，PHP进入catch快并且通过声明的变量名可以访问该异常。如果结果是false，将检查下一个catch。一旦进入一个catch，后面的catch语句将不再进入，就算 instanceof 判断也是true。如果找不到任何一个相关的catch语句，php引擎检查同一个函数里外部加上的 try/cathc 语句。如果没有一个存在，PHP通过展开调用堆栈到调用的函数继续搜索。
+
+throw语句 只能抛出对象，你不能让它抛出任何其他基础数据类型，例如字符串或者整型值。PHP中存在一个预定义的异常类名叫Exception,你自己所有的异常处理类都必须从它继承。如果你尝试抛出一个不是由Exception类继承的类，最后将得到一个运行错误
+
+`注意:永远不要使用异常类控制流程（除非不得以），因为这样会让你的代码很难理解，而且会让你的代码运行缓慢。异常应该只包含特定的错误信息，而且不应该包含会影响获取处理器中流程控制和逻辑的参数`
+
+## 3.16 __autoload()
+
+以往做法是将你需要的文件引入，这样做的缺陷在于你不得不经常包含大量的源文件，而且经常导致包含太多的文件和一个头疼的代码维护问题。__autoload()可以解决这个问题，它不需要你包含将要使用的类。如果你定义一个__autoload函数（每一个应用只能有一个这样的函数），而且当你访问一个还未存在的类时，它将被调用并且把类名作为它的参数。这样做给你一个实时包含类的可能性。如果你成功地包含了该类，你的源代码会继续执行，就像这个类已经定义了一样。如果你没有成功地包含该类，脚本会报一个类不存在的严重错误
+
+__autoload() 例子
+
+```php
+//index.php
+require_once "main.php";
+$obj = new MyClass();
+$obj->printHello();
+
+//main.php
+function __autoload($class_name) {
+    require_once $_SERVER["DOCUMENT_ROOT"] . "/classes/" . $class_name . '.php';
+}
+
+//myclass.php
+class MyClass
+{
+    function printHello() {
+        echo "Hello, World";
+    }
+}
+```
+
+`注意：MyClass.php存在于项目根目录的classes目录下`
+
+上边可以看到myclass.php并没有真正的包含在 main.php 文件中而是暗中通过调用 __autoload() 函数包含进来的。你通常可以将 __autoload() 函数定义在一个文件中，并在你所有的主脚本文件包含它，从而当你需要增加调用的类的数量时，可节省大量的代码而且可以减少维护代码的工作量。
+
+`特别注意：虽然PHP中类名大小写不敏感，但是类的名字发送给 __autoload() 函数时是区分大小写的。如果你更喜欢让你的类的文件名对大小写敏感，请确保在你的代码中保持一致性，而且你的类中也要使用正确大小写的名字。而如果你不希望这么uo，你可以使用 strtolower() 函数把类的名字转变为小写再尝试包含它，同时保存类的文件名都用小写`
+
+## **4. 面向对象编程和设计模式**
+
+## 4.1 重载性能
+
+PHP除了可以用C编写扩展重载对象的语法外，它还允许PHP代码重载一下经常需要的有限子集内容。
+
+### 4.1.1 属性和方法的重载
+
+php允许通过实现特殊的代理方法对属性的访问和方法的调用进行重载，这些代理方法将在相关属性或者方法不存在时调用。这种特性让你在中端这些动作并定义你自己的功能时获得巨大的灵活性。
+
+你可以实现下面的方法原型：
+function __get($property)
+function __get($property, $value)
+function __call($method, $args)
+
+__get 传递属性的名字，并且返回属性的值
+__set 传递属性的名字和新的值
+__call 传递方法的名字和一个数字索引的数组，数组包含传递的参数，第一个参数的索引是 0
+
+__get 和 __set 用法：
+
+```php
+class My {
+    private $arr = array('x' => NULL, 'y' => NULL);
+    function __get($property)
+    {
+        // TODO: Implement __get() method.
+        if (array_key_exists($property, $this->arr)) {
+            return $this->arr[$property];
+        } else {
+            print "Error:Can't read a property other than x & y\n";
+        }
+    }
+    function __set($property, $value)
+    {
+        if (array_key_exists($property, $this->arr)) {
+            $this->arr[$property] = $value;
+        } else {
+            print "Error: Can't wirte ap property other than x & y\n";
+        }
+    }
+}
+$obj = new My();
+$obj->x = 1;
+print $obj->x;
+
+print "\n";
+
+$obj->n = 2;
+print $obj->n;
+```
+
+__call 有很多用途，下面的例子显示如何创建一个授权模型，通过该模型一个 HelloWorldDelegator类的实例可以授权所有的方法去调用一个 HelloWorld类的实例：
+
+```php
+
+class HelloWord {
+    function display($count){
+        for ($i = 0; $i < $count; $i++) {
+            print "Hello,Word";
+        }
+        return $count;
+    }
+}
+class HelloWorldDelegator {
+    private $obj;
+    function __construct()
+    {
+        $this->obj = new HelloWord();
+    }
+    function __call($name, $arguments)
+    {
+        // TODO: Implement __call() method.
+        return call_user_func_array(array($this->obj, $name, $arguments));
+    }
+}
+$obj = new HelloWorldDelegator();
+print $obj->display(3);
+
+```
+
+以上例子会输出
+Hello,world
+Hello,world
+Hello,world
+3
+
+call_user_func_array() 函数允许 __call() 把它的参数通过 call_user_func_array() 调用传递给 HelloWorld::display(),后者打印三次 "Hello,World",然后 __call() 返回 $count 的值。你不但可以通过 __call() 方法调用一个不同的对象，而且你还可以从 __call() 函数返回一个值，就像正常的方法一样
+
+### 4.1.2 使用数组语法访问的重载
+
+你需要实现 ArrayAccess 接口
+
+ArrayAccess接口 像数组一样来访问你的PHP对象，其实就是自己实现php数组的方法
+
+例子：
+
+```php
+
+<?php
+class UserArray implements ArrayAccess {
+    private $elements;
+    /**
+     * 标识一个元素是否定义
+     * @param offset
+     */
+    function offsetExists($offset)
+    {
+        // TODO: Implement offsetExists() method.
+        return isset($this->elements[$offset]);
+    }
+
+    /**
+     * 返回一个元素的值
+     * @param offset
+     */
+    function offsetGet($offset)
+    {
+        // TODO: Implement offsetGet() method.
+        return $this->elements[$offset];
+    }
+    /**
+     * 为一个元素的赋值
+     * @param offset
+     * @param value
+     */
+    function offsetSet($offset, $value)
+    {
+        // TODO: Implement offsetSet() method.
+        $this->elements[$offset] = $value;
+    }
+
+    /**
+     * 删除一个元素
+     * @param offset
+     */
+    function offsetUnset($offset)
+    {
+        // TODO: Implement offsetUnset() method.
+        unset($this->elements[$offset]);
+    }
+}
+$userMap = new UserArray();
+$userMap['test'] = 'test';//自动调用offsetSet
+if(isset($userMap['test']))//自动调用offsetExists
+{
+    echo $userMap['test'];//自动调用offsetGet
+    unset($userMap['test']);//自动调用offsetUnset
+    var_dump($userMap['test']);
+}
+
+```
+
+关于 ArrayAccess 接口主要抽象了几个方法用来访问数组
+
+## 4.2 迭代器
+
+使用 Iterators 接口可以实现自己的迭代器
+
+例如：一个对象的属性使用 foreach() 循环进行迭代遍历
+
+```php
+
+class MyClass {
+    public $name = 'John';
+    public $sex = 'male';
+}
+$obj = new MyClass();
+foreach ($obj as $key => $value) {
+    echo $key . '=' . $value . '<br />';
+}
+
+```
+但是你的类不只是表现为前面例子中一个简单的关键字/值的数组，而会表现为更加复杂的数据，例如一个数据库查询或者配置文件。
+php可以让你用 foreach() 循环再你的代码中重载迭代行为，使得它按照你的类的设计执行有实际意义的遍历。
+
+`注意：PHP不仅可以让你重载这种行为，而且它还可以让编写扩展的作者重写类似的行为，这已经让迭代器支持多种PHP扩展，例如 SimpleXML 和 SQLite`
+
+为了在你的类中重载迭代器，你需要实现一些PHP预先定义的接口
+
+例如： Traversable 接口的类都可以用 foreach 结构遍历。但是，Traversable 是一个空的接口而且不能被直接执行，反之你可以执行 Iteraror 或者 IteratorAggregate,它们都是从 Traversable 继承而来
+
+主要的接口是 Iterator，它定义了你需要执行的方法以便给你类提供 foreach 迭代的功能。这些方法应该是公共的
+
+| Interface Interator|
+|--------|-----------|
+| void rewind() | 重写吧迭代器指向列表的开始处（这个在执行时并不总是可用的） |
+| mixed current() | 返回当前位置的值 |
+| mixed key() | 返回当前位置的关键字 |
+| void next() | 把迭代器移动到下一个关键字/值对 |
+| bool valid() | 返回 true/false值，判断是否还有更多的值（在调用 current() 和 key() 之前使用） |
+
+## 4.3 设计模式
+
+### 4.3.1 策略模式
+
+### 4.3.2 单件模式
+
+### 4.3.3 工厂模式
+
+### 4.3.4 观察者模式
+
+## 4.4 映射
+
+### 4.4.1 映射api
+
+### 4.4.2 映射举例
+
+### 4.4.3 使用映射执行授权模式
