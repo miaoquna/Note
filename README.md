@@ -95,7 +95,7 @@
 			- [4.4.1 映射api](#441-映射api)
 			- [4.4.2 映射举例](#442-映射举例)
 			- [4.4.3 使用映射执行授权模式](#443-使用映射执行授权模式)
-	
+
 ----------
 
 
@@ -2061,7 +2061,7 @@ php可以让你用 foreach() 循环再你的代码中重载迭代行为，使得
 
 主要的接口是 Iterator，它定义了你需要执行的方法以便给你类提供 foreach 迭代的功能。这些方法应该是公共的
 
-| 接口 Interator|
+| 接口 | Interator|
 |------|------|
 | void rewind() | 重写吧迭代器指向列表的开始处（这个在执行时并不总是可用的） |
 | mixed current() | 返回当前位置的值 |
@@ -2069,20 +2069,482 @@ php可以让你用 foreach() 循环再你的代码中重载迭代行为，使得
 | void next() | 把迭代器移动到下一个关键字/值对 |
 | bool valid() | 返回 true/false值，判断是否还有更多的值（在调用 current() 和 key() 之前使用） |
 
+例子：
+```php
+class MyForeach implements Iterator {
+    private $start, $end;
+    private $cur;
+    public function __construct($start, $end)
+    {
+        $this->start = $start;
+        $this->end = $end;
+    }
+
+    //重写把迭代器指向列表开始处
+    public function rewind()
+    {
+        // TODO: Implement rewind() method.
+        $this->cur = $this->start;
+    }
+    //返回当前位置的关键字
+    public function key()
+    {
+        // TODO: Implement key() method.
+        return $this->cur;
+    }
+    //返回当前位置的值
+    public function current()
+    {
+        // TODO: Implement current() method.
+        return pow($this->cur, 2);
+    }
+    //把迭代器移动到下一个 键值对
+    public function next()
+    {
+        // TODO: Implement next() method.
+        $this->cur++;
+    }
+    //返回true/false值，判断是否还有更多的值
+    public function valid()
+    {
+        // TODO: Implement valid() method.
+        return $this->cur <= $this->end;
+    }
+}
+$obj = new MyForeach(3, 7);
+foreach ($obj as $key => $value) {
+    print "The square of $key is $value\n";
+}
+```
+
+这个例子示范了如何用你自己的方法进行一个类的遍历。在这里，类表现的是整数的平方，而且在给予一个最小值和一个最大值后，迭代遍历这些值将给你数字本身和它的平方值。
+
+许多情况下，你的类本身将表述数据和拥有与这些数据的交互的方法。事实上，需要一个迭代器可能不是它的主要目的。另外，当迭代遍历一个对象时，迭代的状态通常会存储在对象本身，因此不允许迭代的嵌套。因为这两个原因，你可以让你的类实现 IteratorAggreagate 接口从而把类的执行和它的迭代器分离开来。与先前必须定义所有方法不同，你只需要定义个返回不同类的方法，该对象就为你实现了迭代遍历的接口。
+
+你需要实现的方法是 Iterator getIterator()，因为它将返回一个处理这个类的迭代的迭代对象。
+
+通过使用这个把类与其迭代器分离的方法，我们改写先前的例子：
+
+```php
+
+<?php
+class MyForeach implements IteratorAggregate {
+    private $start, $end;
+    private $cur;
+    public function __construct($start, $end)
+    {
+        $this->start = $start;
+        $this->end = $end;
+    }
+    public function getIterator()
+    {
+        // TODO: Implement getIterator() method.
+        return new MyForachIterator($this);
+    }
+    public function getStart(){
+        return $this->start;
+    }
+    public function getEnd(){
+        return $this->end;
+    }
+}
+class MyForachIterator implements Iterator {
+    private $cur;
+    private $obj;
+    public function __construct($obj)
+    {
+        $this->obj = $obj;
+    }
+    public function rewind()
+    {
+        // TODO: Implement rewind() method.
+        $this->cur = $this->obj->getStart();
+    }
+    public function key()
+    {
+        // TODO: Implement key() method.
+        return $this->cur;
+    }
+    public function current()
+    {
+        // TODO: Implement current() method.
+        return pow($this->cur, 2);
+    }
+    public function next()
+    {
+        // TODO: Implement next() method.
+        $this->cur++;
+    }
+    public function valid()
+    {
+        // TODO: Implement valid() method.
+        return $this->cur <= $this->obj->getEnd();
+    }
+}
+$obj = new MyForeach(3, 7);
+foreach ($obj as $key => $value) {
+    print "The square of $key is $value\n";
+}
+
+```
+
+这个代码的输出与之前一样，你可以清除地看到 IteratorAggregate 接口可以让你把你的类的主要功能与迭代遍历它需要的方法分离到两个独立的实体中。
+
 ## 4.3 设计模式
+
+常规的解决方案包含了一些不断重复的问题，解决这些问题的方案叫做设计模式
 
 ### 4.3.1 策略模式
 
+策略模式的一个典型应用是处理程序算法与其他算法之间的互换。例如，如果你编写了创建一副图片的代码，在一些情况下，你可以需要创建JPEG的图片，而在另外一个情况下，你可能需要创建 GIF 文件。
+
+策略模式的实现方法通常是通过声明一个抽象的拥有一个算法方法的基类来实现的，而且通过继承这个基类的具体的类来实现。在代码中的一些关键点，设计模式将决定俺哥具体的策略是相关的，然后实例化并使用任何相关的类。
+
+下边列子显示了一个下载服务如何根据访问它的web客户端选择不同的文件策略。在它创建一个包含链接的HTML时，它将根据浏览器的操作系统的标识创建指向 .tar.gz 或者 zip 文件的下载链接。当然，这意味着两个文件都要求通过服务器上统一的格式访问。简单来说，假设词语 “Win” 存在于 $_SERVER["HTTP_USER_AGENT"]中，说明我们正在处理一个来自 windows 系统的请求，因此需要创建 .zip 的链接，反之我们就在处理需要 .tar.gz 格式的系统。
+
+在这个例子中，我们将使用两种策略 .tar.gz 策略和 zip策略，通过下面的代码段将让你了解如何使用这样一个策略模式：
+
+```php
+//顶层的抽象文件链接创建类
+abstract class FileNaming {
+    abstract function createLinkName($filename);
+}
+//zip策略
+class ZipFileNaming extends FileNaming {
+    //这里必须实现继承的抽象类的方法
+    public function createLinkName($filename)
+    {
+        // TODO: Implement createLinkName() method.
+        return "http://downloads.foo.bar/$filename.zip";
+    }
+}
+//Tar.gz 文件策略
+class TarGzFileNaming extends FileNaming {
+    //这里必须实现继承的抽象类的抽象方法
+    public function createLinkName($filename)
+    {
+        // TODO: Implement createLinkName() method.
+        return "http://downloads.foo.bar/$filename.tar.gz";
+    }
+}
+
+//判断浏览器类型，通过 HTTP_USER_AGENT
+//判断是否是windows系统
+if (strstr($_SERVER["HTTP_USER_AGENT"], "Win")) {
+    //生成zip策略类
+    $fileNamingObj = new ZipFileNaming();
+} else {
+    //创建 tar策略类
+    $fileNamingObj = new TarGzFileNaming();
+}
+$filename = 'test';
+//获取文件链接
+$file_link = $fileNamingObj->createLinkName($filename);
+//输出链接到页面
+print <<<EOF
+<h1>根据系统环境自动识别的文件下载地址(windows系统访问到的是zip文件格式)</h1>
+<br>
+<a href="$file_link">$filename</a>
+EOF;
+```
+`提示：策略模式经常跟工厂模式一起使用，工厂模式将在本节的后续部分描述，工厂模式用来选择一个合适的策略`
+
 ### 4.3.2 单件模式
+
+单件模式又叫单例模式。例如下边的情形，你需要一个对象类处理你的应用中的一些集中的操作，例如一个日志记录对象。这种情况下，人们通常希望只有一个这样的覆盖整个应用范围的对象实例存在，并让整个应用代码都可以访问它。具体地说，在一个日志记录对象中，你将需要应用中的每一个地方的代码都可以访问它来吧信息记录到日志中，而且让集中的日志机制根据日志级别设置处理日志信息的过滤。为了解决这种问题，你就需要使用单例模式。
+
+让你的类变成一个单例类通常是通过实现一个静态的类方法 getInstance() 实现的，这个方法只返回该类的唯一实例。在你第一次调用这个方法的时候，它创建一个实例，把它存在一个私有的静态的变量中，并且给你返回实例。下一次，它将仅仅给你返回那个已经创建的实例的句柄。
+
+例子：
+
+```php
+class Logger {
+    //定义静态的实例变量
+    static private $instance = NULL;
+    //自定义获取类的实例的方法，名字通常都写 getInstance
+    static function getInstance() {
+        //调用自身的获取实例的方法
+        if (self::$instance == NULL) {
+            self::$instance = new Logger();
+        }
+        return self::$instance;
+    }
+    //构造函数
+    private function __construct()
+    {
+    }
+    //克隆
+    private function __clone()
+    {
+
+    }
+
+    /**
+     * 日志写入方法
+     * @param $str  日志内容
+     * @return bool 写日志是否成功
+     */
+    public function write($str)
+    {
+        //写日志的逻辑
+        return true;
+    }
+}
+Logger::getInstance()->write('测试日志写入');
+
+```
+这个模式的本质是 Logger::getInstance(), 它让你可以在应用的任何地方访问日志对象，无论是从一个函数，一个方法，还是全局作用域中。
+
+这个例子中，构造函数和克隆方法都被定义 private。这么做的原因是为了防止开发者用 new 或者 clone 运算符错误的创建第二个 Logger类的实例；因此，getInstance() 是唯一可以访问单件类实例的方法
+
 
 ### 4.3.3 工厂模式
 
+多态和基类的使用确实是OOP的核心。但是，在一些阶段你必须创建基类的子类的一个具体实例。这个通常是用工厂模式实现的。一个工厂类拥有一个静态的方法，用来接收一些输入，并根据输入决定该创建那个类的实例（通常是一个子类）
+
+场景：假设在你的 Web 站点上，有着不同类型的用户登录。其中一些人是游客，一些是正常的会员，还有其他一些人是管理员。一个普通的思路是，你会需要一个基类 User 和 三个子类：
+
+GuestUser、CustomerUser与AdminUser。与 User 一样的是，它的子类将包含用户的获取信息的方法（例如，他们访问 Web 站点的权限和个人的首选项）
+
+对你来说，编写你的 Web 应用最好的方法就是尽可能多地使用基类 User，这样代码将会比较规范而且很容易在需求增加时加上附加的用户类型。
+
+下面的例子显示一种关于四个 User 类的实现方式，而且使用 UserFactory 类来根据用户名创建合适的用户对象：
+
+```php
+/**
+ * 用户基类
+ * Class User
+ * ${DS}
+ */
+abstract class User {
+    //初始化用户名
+    protected  $name = NULL;
+    //抽象类的方法不需要使用权限修饰符
+    function __construct($name)
+    {
+        $this->name = $name;
+    }
+    function getName() {
+        return $this->name;
+    }
+    //鉴权
+    function hasReadPermission() {
+        return true;
+    }
+    //修改权限
+    function hasModifyPermission() {
+        return false;
+    }
+    //删除权限
+    function hasDeletePermission() {
+        return false;
+    }
+    //定制的方法
+    function wantsFlashInterface() {
+        return true;
+    }
+}
+
+/**
+ * 访客类，继承 User 基类
+ * Class GuestUser
+ * ${DS}
+ */
+class GuestUser extends User {
+
+}
+
+/**
+ * 会员类
+ * Class CustomerUser
+ * ${DS}
+ */
+class CustomerUser extends User {
+    //重写父类的 修改权限方法
+    function hasModifyPermission()
+    {
+        return true;
+    }
+}
+
+/**
+ * 管理员类
+ * Class AdminUser
+ * ${DS}
+ */
+class AdminUser extends User {
+    function hasModifyPermission()
+    {
+        return true;
+    }
+    function hasDeletePermission()
+    {
+        return true;
+    }
+    function wantsFlashInterface()
+    {
+        return false;
+    }
+}
+
+/**
+ * 用户工厂类
+ * Class UserFactory
+ * ${DS}
+ */
+class UserFactory {
+    private static $users = array("Andi" => "admin", "Stig" => "guesst", "Derick" => "customer");
+    //创建用户
+    static function Create($name)
+    {
+        if (isset(self::$users[$name])) {
+            //报错，用户不存在
+            //echo "用户不存在";
+        }
+        switch (self::$users[$name]) {
+            case "guesst" :
+                return new GuestUser($name);
+            case "customer" :
+                return new CustomerUser($name);
+            case "admin" :
+                return new AdminUser($name);
+            default:
+                //报错，用户类型不存在
+                //echo "用户类型不存在";
+        }
+    }
+}
+//辅助函数
+function boolToStar($bool) {
+    if ($bool == true) {
+        return "Yes\n";
+    } else {
+        return "No\n";
+    }
+}
+
+/**
+ * 读取用户权限
+ * @param User $obj 对象必须是User类或其子类
+ */
+function displayPermissions(User $obj)
+{
+    print $obj->getName() . "是存在的用户<br>";
+    print "是否有读权限：" . boolToStar($obj->hasReadPermission()).'<br>';
+    print "是否有改权限：" . boolToStar($obj->hasModifyPermission()).'<br>';
+    print "是否有删权限：" . boolToStar($obj->hasDeletePermission()).'<br>';
+}
+
+function displayRequirements(User $obj)
+{
+    if ($obj->wantsFlashInterface()) {
+        print $obj->getName() . " require Flash<br>";
+    }
+}
+$logins = array("Andi", "Stig", "Derick");
+foreach ($logins as $login) {
+    displayPermissions(UserFactory::Create($login));
+    displayRequirements(UserFactory::Create($login));
+}
+
+```
+
+这个例子是一个经典的工厂模式的例子。你拥有一个类分层但是你的代码例如 displayPermission() 采用同样的方法处理。唯一一个不同方法处理类的就是工厂本身，`他负责构造这些实例`。在这个例子中，工厂检查用户名属于哪种类型的用户并且创建与它相对应的实例。在实际开发中，与把用户存在用户名映射的一个静态数组中不同的是，你可能会把用户信息存储在数据库或者配置文件中。
+
+`提示：除了 Create()，你将经常能发现其他用于工厂的方法名，例如 factory()、factoryMethod()，或者 createInstance()`
+
 ### 4.3.4 观察者模式
+
+场景：一个电子商务站点显示的每一个产品的单价如果显示为用户当地的货币就需要使用当前的汇率进行转换。现在假设每一个产品项目都是由一个PHP对象从数据库获取并呈现出来的，而货币转换的汇率本身大部分可能是由一个另外的资源获得而并不是产品数据库条目的一部分。让我们在假定这样一个对象有一个 display() 方法来输出和这个产品相关的html页面。
+
+观察者模式允许对象注册到一个特定的时间或者数据，并且当这个事件发生或者数据改变时，它会自动通报。通过这个方法，你可以把产品项目开发成一个给予货币汇率的观察者，而且在打印出项目的条目时，你可以驱动一个事件来用正确的汇率更新注册的对象。这么做是为了让对象有机会自我更新并且在 display 方法中使用新的数据
+
+通常，观察者模式通过使用一个叫 Observer 的接口实现的，对作为观察者感兴趣的类需要实现这个接口
+
+一个对象想要 “可观察”，通常需要一个注册方法，这让观察者对象可以注册它自己。例如，下面的例子可能是我们需要的汇率类：
+
+没有理解，将去看另外一本书户
 
 ## 4.4 映射
 
+$className = 'MyClass';
+$myclass = new $className();
+
 ### 4.4.1 映射api
+
+映射 API 包含了大量的类，你可以用他们内观你的应用。
 
 ### 4.4.2 映射举例
 
+简单的例子
+
+下面的代码显示了一个使用 RrefectionClass::export() 静态方法的简单的例子，目的是从 ReflectionParameter 获取信息。ReflectionCalss::export()可以用来获取一个PHP类的信息
+
 ### 4.4.3 使用映射执行授权模式
+
+开发中会遇到，一个类需要去执行另一个类或者更多其他类的方法的次数越来越多。最开始的临时解决办法是让类1去继承类2，并因此继承所有该类的功能。但是许多时候这种方法是错误的，不但因为他们之间不是一个明确的父子关系，而且因为类1有可能已经继承另外一个类，所以不能再继承了。在这种情况下，使用授权模块（通过`授权设计模式`）就变的有用了，如果调用一个类1不具备的方法时，会转向调用类2。一些情况下，你甚至需要连接起大量的对象，其中列表中的第一个对象拥有最高的优先级。
+
+下面的例子创建了名叫 ClassOneDelegator 的授权模型，它首先检查方法是否存在并可以从 ClassOne 访问到；如果不行，它将尝试从注册到该对象的其他对象去寻找方法。这个应用可以通过 addObject($obj) 方法注册附加的对象来提供授权。增加对象的顺序就是 ClassOne 寻找一个可以满足请求的对象的优先级顺序：
+
+```php
+
+class ClassOne {
+    function callClassOne() {
+        print "这是类1<br/>";
+    }
+}
+class ClassTwo {
+    function callClassTwo() {
+        print "这是类2<br/>";
+    }
+}
+
+/**
+ * 授权模型
+ * Class ClassOneDelegator
+ * ${DS}
+ */
+class ClassOneDelegator {
+    private $targets;
+    function __construct()
+    {
+        //追加类1到数组中
+        $this->targets[] = new ClassOne();
+    }
+
+    /**
+     * 添加对象到授权数组中
+     * @param $obj
+     */
+    function addObject($obj) {
+        $this->targets[] = $obj;
+    }
+    function __call($name, $arguments)
+    {
+        // TODO: Implement __call() method.
+        foreach ($this->targets as $obj) {
+            //获取类的报告信息
+            $r = new ReflectionClass($obj);
+            try {
+                $method = $r->getMethod($name);
+            } catch (ReflectionException $e) {
+                continue;
+            }
+
+            //判断你调用的方法是否存于授权模型中
+            //确保要授权的方法是公有的而且不是抽象方法
+            if ($method && $method->isPublic() && !$method->isAbstract()) {
+                //执行一个反射方法
+                return $method->invoke($obj, $arguments);
+            }
+        }
+    }
+}
+$obj = new ClassOneDelegator();
+$obj->addObject(new ClassTwo());
+$obj->callClassOne();
+$obj->callClassTwo();
+
+```
+
+
