@@ -4,7 +4,23 @@
 
 - [1. 高级特性](#1-高级特性)
 	- [1.1 静态方法和属性](#11-静态方法和属性)
-	-  
+	- [1.2 常量属性](#12-常量属性)
+	- [1.3 抽象类](#13-抽象类)
+	- [1.4 接口](#14-接口)
+	- [1.5 延迟静态绑定：new static()](#15-延迟静态绑定：new static())
+	- [1.6 异常](#16-异常)
+		- [1.6.1 抛出异常](#161-抛出异常)
+		- [1.6.2 自定义异常类](#162-自定义异常类)
+	- [1.7 Final 类和方法](#17-final-类和方法)
+	- [1.8 使用拦截器](#18-使用拦截器)
+- [2. 对象工具](#2-对象工具)
+	- [2.1 PHP包和命名空间](#21-PHP包和命名空间)
+		- [2.1.1 命名空间](#211-命名空间)
+		- [2.1.2 文件包含](#212-文件包含)
+		- [2.1.3 关于路径](#213-关于路径)
+	- [2.2 自动加载](#22-自动加载)
+	- [2.3 类函数和对象函数](#23-类函数和对象函数)
+		- [2.3.1 查找类](#231-查找类)
 
 ## **1. 高级特性**
 
@@ -278,3 +294,525 @@ echo $p->name; //输出
 echo $p->gender;//这个方法会不存在，什么也不处理。用户访问的找个熟悉被解析为NULL;
 
 __isset() 和 __get() 方法相似。当客户在一个未定义的属性上调用 isset() 时， __isset()被调用。
+
+```php
+function __isset( $property ) {
+	$method = "get{$property}";
+	return (method_exists($this, $method));
+}
+```
+
+__set() 方法在给未定义的属性赋值时被调用，它会接受两个参数：属性名和值，然后我们我们再决定如何使用这些参数。
+
+```php
+<?php
+class Person {
+    private $_name;
+    private $_age;
+
+    /**
+     * __set() 拦截，当设置一个未知属性时，会拦截到这个操作，进入这个方法进行处理
+     * @param $property
+     * @param $value
+     */
+    function __set( $property, $value) {
+        $method = "set{$property}";
+        //校验一个方法是否存在，接收一个对象和一个方法名
+        if (method_exists($this, $method)) {
+            //方法存在的话，调用这个方法
+            return $this->$method($value);
+        }
+    }
+
+    /**
+     * 设定名称方法
+     * @param $name
+     */
+    function setName($name) {
+        $this->_name = $name;
+        if (!is_null($name)) {
+            //所有字符转大写
+            $this->_name = strtoupper($this->_name);
+        }
+    }
+
+    /**
+     * 设定年龄方法
+     * @param $age
+     */
+    function setAge($age) {
+        $this->_age = strtoupper($age);
+    }
+}
+```
+
+在这个例子中，我们使用了设置方法而不是获取方法。如果用户要给未定义的属性赋值，__set() 方法就会被调用，其参数为属性名及要赋的值。我们检查了指定设置的方法是否存在，如果存在就调用。这样我们可以过滤掉已经赋值的属性。
+
+当创建 Person 对象并尝试设置一个名为Person::$name 的属性时，因为这个类没有定义 $name 属性，所以 __set() 方法会被调用，其参数为字符串 name 和要设定的值。这一值如何使用则取决于 __set() 的实现。本例中，我们将set字符串与属性名称链接在一起，构造了一个类方法setName()。我们发现 setName() 方法已经存在，并且立即调用它。这样就可以从外部得到值存储到一个真实存在的属性中。
+
+__unset() 和 __set相对应。当unset()在一个未定义的属性上被调用时， __unset() 会被调用，并以该属性的名称作为参数，然后你可以根据属性名进行必要的处理。
+
+__call() 方法可能是最有用的拦截器方法。当调用类中未定义的方法时， __call() 会被调用。 __call接受两个参数，一个是方法名，另一个是传递给要调用方法的所有参数（数组）。 __call() 方法返回的任何值都会返回给客户，就好像调用一个真实存在的方法一样。
+
+__call() 方法对于实现委托也很有用。委托是指一个对象转发或者委托一个请求给另一个对象，被委托的一方替原先对象处理请求。这类似于继承，和在子类中调用父类的方法有点相似。但在继承时，父类与子类的关系是固定的，而使用委托则可以在代码运行时改变使用的对象，这意味着委托比继承具有更大的灵活性。下边的例子解释了如何使用委托：
+
+```php
+class PersonWriter {
+    function writeName(Person $p) {
+        print $p->getName."\n";
+    }
+    function writeAge(Person $p) {
+        print $p->getAge()."\n";
+    }
+}
+class Person {
+    private $writer;
+
+    function __construct(PersonWriter $writer)
+    {
+        $this->writer = $writer;
+    }
+
+    function __call($name, $arguments)
+    {
+        // TODO: Implement __call() method.
+        if (method_exists($this->writer, $name)) {
+            return $this->writer->$name($this);
+        }
+    }
+
+    function getName() {
+        return "Bob";
+    }
+    function getAge() {
+        return 44;
+    }
+}
+```
+
+## 1.9 析构方法
+
+__destruct() 方法，它只在对象被垃圾收集前自动调用。用来做最后的必要的清理工作。
+
+## 1.10 使用 __clone() 复制对象
+```php
+class CopyMe{}
+$first = new CopyMe();
+$second = $first;
+```
+在PHP中，对象的赋值和传递都是通过引用进行的。 $first 和 $second 这两个变量包含指向同一个对象的引用，而不是各自保留一份相同的副本，如果你要获取一个对象的副本，而不是引用，可以通过 clone 关键字来达到这个目的。
+```php
+class CopyMe{}
+$first = new CopyMe();
+$second = clone $first;
+//现在 $first 和 $second 是两个不同的对象
+```
+如果你想在克隆一个类的时候监听到克隆的动作，可以在类里边实现 __clone() 魔术方法来实现监听
+
+```php
+class CopyMe{
+
+function __clone(){
+//在使用clone这个对象的时候，会被 __clone 拦截到，然后你就可以在这个方法里边完成你想做的工作了
+}
+
+}
+```
+
+## 1.11 回调、匿名函数和闭包
+
+```php
+<?php
+class Product {
+    public $name;
+    public $price;
+
+    function __construct($name, $price)
+    {
+        $this->name = $name;
+        $this->price = $price;
+    }
+}
+class ProcessSale {
+    private $callbacks;
+
+    /**
+     * 注册回调方法到类的属性中
+     * @param $callback
+     */
+    function registerCallback($callback) {
+        //验证变量的内容是否能够进行函数调用
+        if (! is_callable($callback)) {
+            //抛出异常
+            throw new Exception("callback 不能进行函数调用");
+        }
+        $this->callbacks[] = $callback;
+    }
+
+    function sale($product) {
+        print "{$product->name}:processiong \n";
+        foreach ($this->callbacks as $callback) {
+            //把 $callback 作为回调函数调用
+            call_user_func($callback, $product);
+        }
+    }
+}
+```
+
+
+## **2. 对象工具**
+
+## 2.1 PHP包和命名空间
+
+### 2.1.1 命名空间
+
+从本质上说，命名空间就是一个容器，你可以将类、函数和变量放在其中。在命名空间中，你可以无条件地方法这些项目。在命名空间之外，必须导入或引用命名空间，才能访问它所包含的项。
+
+namespace 关键字创建命名空间
+
+```php
+namespace com\getinstance\util; //声明当前类的命名空间
+
+class Debug {
+    static function helloWorld() {
+        echo "hello bug";
+    }
+}
+//这里可以直接使用 非限定名 调用，因为你已经处于 com\getinstance\util 命名空间中了，所以不必在类名前加任何种类的路径。
+Debug::helloWorld();
+
+//如果打算重名空间环境之外访问类，可以这样做：
+// com\getinstance\util\Debug::helloWorld();
+```
+
+如果我使用下边的代码会提示找不到命名空间
+
+```php
+namespace main;
+com\getinstance\util\Debug:helloWorld();
+```
+因为我使用了相对命名空间。PHP会在main命名空间中寻找com\instance\util，但没有找到。就像创建绝对URL和文件路径时，以分割符作为开始一样，你也可以使用这种方式创建 `绝对命名空间`，下边这个示例修正了前面的错误
+```php
+namespace main;
+\com\getinstance\util\Debug::helloWorld();
+```
+这个最前边的 `反斜杠` 告诉PHP从根命名空间而不是从当前命名空间开始搜索。
+但命名空间不应该在减少代码方面有所帮助吗？当前，Debug类声明很短，但这些调用和使用老旧的命名规范中的调用一样啰嗦。使用use关键字可以解决这一问题。利用该关键字，你可以为当前命名空间中的其他命名空间起别名
+```php
+namespace main;
+use com\getinstance\util;
+util\Debug::helloWorld();
+```
+导入 com\getinstance\util 命名空间，并隐式地为其使用了别名util。注意：没有使用前导反斜杠字符作为开始。这里从全局命名空间而不是从当前命名空间搜索要使用的参数。如果不想引用命名空间，可以导入Debug类本身：
+```php
+namespace main;
+use com\getinstance\util\Debug;
+util\Debug::helloWorld();
+```
+但是如果 main 命名空间中已经包好了Debug类，会发生什么？
+```php
+namespace main;
+use com\getinstance\util\Debug;
+class Debug {
+    static function helloWorld() {
+        print "hello from main";
+    }
+}
+Debug::helloWorld();
+```
+`Fatal error: Cannot declare class main\Debug because the name is already in use in`
+
+这时会遇到类命名冲突问题，命名空间不就是为了解决命名冲突的问题的吗？
+这时候我们可以使用 `as` 子句来定义别名
+```php
+namespace main;
+use com\getinstance\util\Debug as uDebug;
+class Debug {
+    static function helloWorld() {
+        print "hello from main";
+    }
+}
+Debug::helloWorld();
+```
+如果在命名空间中编写代码，而你想放的类保存在全局空间中（没有定义命名空间的类），那么你可以在该名称前加反斜杠。下面是在全局空间中声明的方法：
+```php
+//global.php 无命名空间
+class Lister {
+	public static function helloWorld() {
+		print "hello from global";	
+	}
+}
+```
+下面是一些引用该类的命名空间代码：
+```php
+namespace com\getinstance\util;
+require_once 'global.php';
+class Lister {
+	public static function helloWorld() {
+		print "hello from ".__NAMESPACE__;
+	}
+}
+Lister::helloWorld(); //（非限定名访问）当前命名空间访问
+\Lister::helloWorld(); //全局空间的访问
+```
+命名空间的代码声明了它自己的Lister类。非限定名访问本地版本。使用单个反斜杠限定的名称将访问全局空间中的类。
+__NAMESPACE__ 输出当前命名空间的名称
+
+如果你必须将多个命名空间组合到一个文件中，那么推荐下面这种写法
+```php
+//定义命名空间
+namespace com\getinstance\util {
+    //名空间的中的类
+    class Debug {
+        static function helloWorle() {
+            print "hello from Debug";
+        }
+    }
+}
+//定义命名空间
+namespace main {
+    \com\getinstance\util\Debug::helloWorle();
+}
+```
+但通常认为每个文件定义一个命名空间是最好的做法。
+
+命名空间后的`大括号语法`提供一项功能就是可以在一个文件中切换到全局空间。前面我曾使用 require_once 从全局空间获取代码。实际上，我也可以使用刚刚介绍的这种命名空间语法，并在文件中执行所有操作。
+
+```PHP
+//进入到全局空间，也就是根目录的意思
+namespace {
+    class Lister {
+        //全局空间中的类
+        static function helloWorld() {
+            print "hello from Global";
+        }
+    }
+}
+namespace com\getinstance\util {
+    class Lister {
+        static function helloWorld() {
+            
+        }
+    }
+    Lister::helloWorld();
+    \Lister::helloWorld();
+}
+```
+`不能在同一个文件中同时使用大括号命名空间语法和行命名空间语法。你必须选择其中的一种，并且在整个文件中坚持使用这种语法，意思就是大括号命名空间和行命名空间不能同时存在`
+
+### 2.1.2 文件包含
+
+除了使用命名空间，你也可以使用文件包含引入一个类或者文件
+
+include() 和 require() 语句的不同在于如何处理错误。
+
+include 调用文件发生错误时，生成警告并停止执行包含文件，跳出包含语句继续向下执行
+include_once 功能和 include 类似，但是一个文件只能被包含一次，如果包含两次将会报错
+
+require 调用文件发生错误时，将会停止整个代码
+require_once 功能和 require 类似，但是一个文件只能被包含一次，如果包含两次将会报错
+
+`注意：包含文件时 require() 和 require_once() 都是语句而不是函数，这意味着使用它们的时候可以省略括号。我通常会喜欢加括号`
+
+`关于性能一点思考：和使用 require() 相比，require_once() 需要额外的开销。如果想尽可能地减少系统执行时间，应该考虑使用   require()`
+
+### 2.1.3 关于路径
+
+组织组件时，必须记住两件事。第一：文件系统文件和目录存放的位置，第二：你要充分考虑组件之间互相访问的方式。
+
+当我们包含一个文件时，可以使用相对路径（相对于当前工作目录），也可以使用绝对路径来引用该文件。
+
+比如使用相对路径的例子
+
+require_once('business/User.php');
+
+但这需要当前的工作目录中包含 business 目录。如果以后 business 目录不存在了，就需要修改代码。使用相对路径包含库时，通常会使用冗长的 require_once() 语句：
+
+require_once('../../projectlib/business/User.php');
+
+当然也可以使用绝对路径
+
+require_once('/home/john/projectlib/business/User.php');
+
+没有哪种方法是绝对完美的。使用绝对路径太过绝对，并且把库文件固定在某个地方了。
+
+使用绝对路径时，我们把库绑定到了特定的文件系统。无路何时在新服务器上安装写好的程序时，所有的 require 语句都需要更改文件路径
+
+使用相对路径时，我们把脚本工作目录和类库目录的位置关系固定住了。这样如果不修改 require 语句，就无法重新定位文件系统中的文件，而且不通过复制文件很难实现项目间共享。
+
+这时候你可以选择使用包，将包文件放置于 usr/local/lib/php-libraries 这种系统底层的公共包管理的地方
+
+当然你也可以使用这两年流行起来 `composer包管理`，这个会做单独讲解
+
+## 2.2 自动加载
+
+**这节讲述最重要的自动加载实现原理**
+
+在某些情况下，你可能希望一个文件定义一个类，一一对应，便于管理。这种方法会有额外的开销（包含文件会带来开销），但这种组织方式非常有用，特别是系统需要在运行时使用新类的情况下。使用这种方法，每个类文件的名称都和它所包含的类名相关，因此你可以再名为ShopProduct.php 的文件中定义 ShopProduct类。另外也可以使用 PEAR 命名规则，把文件命名为 ShopProduct.php,但是类可能要根据它的路径命名为 business_ShopProduct
+
+PHP5引入了 __autoload() 拦截器方法来自动包含类文件。 __autoload() 应该被写成单个参数的方法。当PHP引擎遇到视图实例化未知类的操作时，会调用 __autoload() 方法（如果已定义），并将类名当作字符参数传递给它。 __autoload() 的编写者应该自己定义一种策略来定位和包含缺失的类文件。
+
+```php
+function __autoload( $className ) {
+	//你会看到无论如何都会输出 123，这就意味着只要你实例化一个未知的类都被 __autoload() 拦截到这个实例化请求
+    echo 123;
+    include_once "$className.php";
+}
+$product = new ShopProduct('The Dark', 12.99);
+```
+
+如果使用PEAR命名规则，则可以这样实现
+
+```php
+function __autoload( $className ) {
+    //DIRECTORY_SEPARATOR 表示当前环境下的目录分隔符
+    $path = str_replace('_', DIRECTORY_SEPARATOR, $className);
+    // business/ShopProduct.php
+    include_once "$path.php";
+}
+$product = new business_ShopProduct('The Dark', 12.99);
+```
+
+当然我们不会经常使用上边这种方式，我个人绝对会导致类名太长，而且如果类名 business_Shop_Product 也包含下划线，会出现引用文件错误的问题。
+
+那是用命名空间如何？它需要测试反斜线字符，如果该字符存在的话，就添加一个转换：
+```php
+function __autoload( $className ) {
+    if (preg_match('/\\\\/', $className)) {
+        $path = str_replace('\\', DIRECTORY_SEPARATOR, $className);
+    } else {
+        $path = str_replace('_', DIRECTORY_SEPARATOR, $className)；
+    }
+    require_once $path;
+}
+```
+
+同样，我又对类文件和目录以及他们与命名空间或PEAR风格的类名之间的关系做了一些假设。考虑到导入和使用别名的灵活性，你关系的可能是在命名空间中调用类的各种方式。毕竟我可以对 business\ShopProduct 使用任意别名，例如Percy，传递给 __autoload() 的值总被规范化成完全限定的名称，没有前导的反斜杠，这是好事
+
+__autoload() 方法是一种根据类和文件的结构，管理类库文件包含的有效方法。
+
+`注意：__autoload()是一个强大的工具，但也存在一些限制。尤其是，在一个进程中你只能定义它一次。如果需要动态的修改自动加载函数，那么你应该看一下 spl_autoload_register 函数，它提供了动态修改功能`
+
+`sql_autoload_register` 是更高级的 __autoload()，它可以动态注册自动加载函数，而且可以加载多个，按顺序执行
+
+
+```php
+//a.class.php
+class a
+{
+    function __construct($name)
+    {
+        echo "$name 这是从 A 创建的<br>";
+    }
+}
+
+//b.php
+class b
+{
+    function __construct($name)
+    {
+        echo "$name 这是从 B 创建的<br>";
+    }
+}
+
+//AutoLoad.php
+class LOAD1
+{
+    static function loadClass($class_name)
+    {
+        $filename = $class_name . ".class.php";
+        if (is_file($filename)) return include_once $filename;
+    }
+}
+
+class LOAD2
+{
+    static function loadClass($class_name)
+    {
+        $filename = $class_name . ".php";
+        if (is_file($filename)) return include_once $filename;
+    }
+}
+
+//实现自动加载，很多框架就用这种方法自动加载类
+/**
+ * 设置对象的自动载入
+ * spl_autoload_register — Register given function as __autoload() implementation
+ */
+spl_autoload_register(array('LOAD1', 'loadClass'));
+spl_autoload_register(array('LOAD2', 'loadClass'));
+$a = new a('a'); //来自于
+$b = new b('b');
+```
+上边注册了两个自动加载函数，在注册多个的情况下，是按顺序执行的
+
+
+## 2.3 类函数和对象函数
+
+PHP在运行时你可能无法知道正在使用的类是哪个。例如，你要设计一个能够透明地被第三方类使用的系统。在这种情况下，你很可能需要实例化一个只给出类名的对象。PHP允许使用字符串来动态的引用类。
+```php
+//Task.php
+namespace tasks;
+class Task {
+    function doSpeak() {
+        print "hello<br>";
+    }
+}
+
+//TaskRunner.php
+$classname = "Task";
+require_once "tasks/{$classname}.php";
+$classname = "tasks\\$classname";
+$myObj = new $classname();
+$myObj->doSpeak();
+```
+你可以从配置文件或通过比较Web请求和目录内容获得赋值给 $classname 的字符，然后利用该字符串来加载文件，实例化需要的对象。注意，在这个代码中，我已经构造了一个命名空间限定条件
+
+如果想让系统能运行用户创建的插件，这个功能非常有用。在开发实际项目时，需要检查类是否存在、它是否拥有将要使用的方法等，以避免可能存在的风险。
+
+### 2.3.1 查找类
+
+class_exists() 函数接受表示类的字符串，检查并返回布尔值。如果类存在则返回 true，否则返回false，使用该函数，可以使之前的代码段更安全一些
+
+```php
+//Task.php
+namespace tasks;
+class Task {
+    function doSpeak() {
+        print "hello<br>";
+    }
+}
+
+//TaskRunner.php
+$classname = "Task";
+$path = "tasks/{$classname}.php";
+if (!file_exists($path)) {
+	throw new Exception("No such file as {$path}");
+}
+require_once $path;
+$classname = "tasks\\$classname";
+if (!class_exists($classname)) {
+	throw new Exception("No such class as {$path}");
+}
+$myObj = new $classname();
+$myObj->doSpeak();
+```
+
+当然，我们无法确定该类的构造方法是否需要参数。在这个级别的安全上，应该求助于本章稍候介绍的反射API
+
+检查类的类型常用的方法有：`get_class`、`instanceof`
+
+常用的类操作方法
+
+| 方法名 | 解释 |
+| ----- | ----- |
+|get_declared_classes(); | //获取脚本进程中定义的所有类的数组 |
+|get_class();| //简单地实例化并返回一个对象 |
+|get_class_methods(); | //获取一个类中所有方法的列表 |
+|is_callable();  |//检查方法存在且可被调用 |
+|method_exists();  |//检查方法是否存在（private、protected、public方法都会返回true） |
+|get_class_vars();  |//获取类的属性 |
+|get_parent_class(); | //获取类的继承关系 |
+|is_subclass_of();  |//检测类是否是另个类的派生类
+|class_implements(); | //返回一个类实现的接口 |
+|call_user_func(); | //动态调用方法或函数 |
