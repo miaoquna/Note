@@ -7,7 +7,7 @@
 	- [1.2 常量属性](#12-常量属性)
 	- [1.3 抽象类](#13-抽象类)
 	- [1.4 接口](#14-接口)
-	- [1.5 延迟静态绑定：new static()](#15-延迟静态绑定：new static())
+	- [1.5 延迟静态绑定：new static()](#15-延迟静态绑定：new-static())
 	- [1.6 异常](#16-异常)
 		- [1.6.1 抛出异常](#161-抛出异常)
 		- [1.6.2 自定义异常类](#162-自定义异常类)
@@ -21,6 +21,15 @@
 	- [2.2 自动加载](#22-自动加载)
 	- [2.3 类函数和对象函数](#23-类函数和对象函数)
 		- [2.3.1 查找类](#231-查找类)
+	- [2.4 反射API](#24-反射API)
+		- [2.4.1 反射类](#241-反射类) 
+		- [2.4.2 ReflectionClass](#242-ReflectionClass)
+		- [2.4.3 检查类](#243-检查类)
+		- [2.4.4 检查方法](#244-检查方法)
+		- [2.4.5 检查方法参数](#245-检查方法参数)
+		- [2.4.6 使用反射API](#246-使用反射API)
+- [3. 对象与设计](#3-对象与设计)
+
 
 ## **1. 高级特性**
 
@@ -816,3 +825,582 @@ $myObj->doSpeak();
 |is_subclass_of();  |//检测类是否是另个类的派生类
 |class_implements(); | //返回一个类实现的接口 |
 |call_user_func(); | //动态调用方法或函数 |
+
+## 2.4 反射API
+
+### 2.4.1 反射类
+
+| 类 | 描述 |
+| ----- | ----- |
+|Reflection(); | //为类的摘要信息提供静态函数 export() |
+|ReflectionClass();| //类信息和工具 |
+|ReflectionMethod(); | //类方法信息和工具 |
+|ReflectionParameter();  |//方法参数信息和工具 |
+|ReflectionProperty();  |//类属性信息 |
+|ReflectionFunction();  |//函数信息和工具 |
+|ReflectionExtension(); | //PHP扩展信息 |
+|ReflectionException();  |//错误类
+
+利用反射API中的这些类，可以在运行时访问对象、函数和脚本中的扩展信息
+由于反射API非常强大，你应该经常使用反射API而少用类和对象函数。它是不可缺少的类测试工具。例如，你也许想要生成类结构的图标或文档，或者想保存对象信息到数据库，检查对象的访问方法来提取字段名。反射的另一用途是根据命名规则创建一个调用模板类中方法的框架。
+
+### 2.4.2 ReflectionClass
+
+ReflectionClass 提供揭示给定类所有信息的方法，无论这个类是用户定义的还是PHP自带的内置类。ReflectionClass 的构造方法接受类名作为它的唯一参数：
+
+```php
+
+class CdProduct {
+    public $value;
+    public function api() {
+
+    }
+}
+$prod_class = new ReflectionClass('CdProduct');
+Reflection::export($prod_class);
+
+```
+
+创建 ReflectionClass 对象后，就可以使用 Reflection 工具类输出 CdProduct 类的相关信息。Reflection有一个静态方法 export()，用于格式化和输出 Reflection 对象管理的数据（即任何实现Reflector接口的类的实例）。下面是调用 Reflection::export() 所生成的输出摘要：
+
+
+```php
+Class [ <user> class CdProduct ] {
+  @@ I:\wwwroot\www.ci.com\test.php 2-7
+
+  - Constants [0] {
+  }
+
+  - Static properties [0] {
+  }
+
+  - Static methods [0] {
+  }
+
+  - Properties [1] {
+    Property [ <default> public $value ]
+  }
+
+  - Methods [1] {
+    Method [ <user> public method api ] {
+      @@ I:\wwwroot\www.ci.com\test.php 4 - 6
+    }
+  }
+}
+```
+
+可以看到，Reflection::export() 可以提供类的相关信息。 Reflection::export() 提供了 CdProduct类几乎所有的信息，包括属性和方法的访问控制状态、每个方法需要的参数以及每个方法在脚本文档中的位置。将该函数与调试函数 var_dump() 相比较，var_dump() 函数是汇总数据的通用工具，但使用 var_dump() 在提取摘要前必须实例化一个对象，而且它也无法提供像 Reflection::export 提供的那么多的细节。
+
+```php
+$cd = new CdProduct();
+var_dump($cd);
+```
+输出结果：
+
+object(CdProduct)[2]
+  public 'value' => null
+
+var_dump() 和它的系列函数 print_r 是检测PHP代码中数据的利器，但对于类和函数，反射API提供了更高层次的功能。
+
+### 2.4.3 检查类
+
+Reflection::export() 可以为调试提供大量有用的信息，我们还可以通过特定的方式使用API。下面直接使用 Reflection 类。
+
+使用 ReflectionClass 对象来研究脚本中的 CdProduct。这个类属于哪一类型呢？可以创建实例吗？下面这个函数回答了这些问题：
+
+```php
+function classData(ReflectionClass $class) {
+    $detail = "";
+    $name = $class->getName();
+    //检查一个类是否由用户定义，和内置相对。
+    if ($class->isUserDefined()) {
+        $detail .= "$name 是用户自己创建的类<br>";
+    }
+    //检查类是否由扩展或核心在内部定义，与用户定义相反。
+    if ($class->isInternal()) {
+        $detail .= "$name 是内部类<br>";
+    }
+    //检查类是否是一个接口
+    if ($class->isInterface()) {
+        $detail .= "$name 是接口类<br>";
+    }
+    //检查类是否是抽象类
+    if ($class->isAbstract()) {
+        $detail .= "$name 是抽象类<br>";
+    }
+    //检查类是否声明为 final。（final类不能被继承）
+    if ($class->isFinal()) {
+        $detail .= "$name 是final类,不能被继承<br>";
+    }
+    //检查这个类是否可实例化。
+    if ($class->isInstantiable()) {
+        $detail .= "$name 可以被实例化<br>";
+    } else {
+        $detail .= "$name 不能被实例化<br>";
+    }
+    return $detail;
+}
+
+$prod_class = new ReflectionClass('CdProduct');
+print classData($prod_class);
+```
+
+ReflectionClass 提供自定义类所在的文件名及文件中类的起始和终止行。
+
+下面是利用 ReflectionClass 来获取源代码的简单实例：
+
+```php
+class CdProduct {
+    public $value;
+    public function api() {
+
+    }
+}
+
+class ReflectionUtil {
+    //获取自定类的源码
+    static function getClassSource(ReflectionClass $class) {
+        //返回类所定义的文件名。如果这个类是在 PHP 核心或 PHP 扩展中定义的，则返回 FALSE。
+        $path = $class->getFileName();
+        //把整个文件读入一个数组中。
+        $lines = @file($path);
+        //获取自定类的起始行号
+        $from = $class->getStartLine();
+        //获取自定义类的结束行号
+        $to = $class->getEndLine();
+        //获取总行数
+        $len = $to-$from+1;
+        //implode 数组元素组合为字符串
+        //array_slice() 从指定位置截取数组
+        return implode(array_slice($lines, $from-1, $len));
+    }
+}
+
+print ReflectionUtil::getClassSource(new ReflectionClass('Reflection'));
+```
+上例会输出:
+```php
+class CdProduct {
+    public $value;
+    public function api() {
+
+    }
+}
+```
+你会发现通过 ReflectionClass 类可以实现获取一个类的源代码
+
+### 2.4.4 检查方法
+
+已经了解过 ReflectionClass 可以用于检查类一样，ReflectionMethod 对象可以用于检查类中的方法。
+获得 ReflectionMethod 对象的方法有两种：从 ReflectionClass::getMethods() 获得 ReflectionMethod 对象的数组；如果需要使用特定的类方法， ReflectionClass::getMethod() 可以接受一个方法名作为参数并返回相应的 ReflectionMethod 对象。
+
+下面使用 ReflectionClass::getMethods() 来获取对象的所有方法并用 ReflectionMethod 类来逐一检查这些方法的细节信息。
+
+```php
+
+class CdProduct
+{
+    public $value;
+
+    public function __construct()
+    {
+    }
+
+    private function api()
+    {
+
+    }
+
+    protected function inter()
+    {
+        return true;
+    }
+}
+
+function methodData(ReflectionMethod $method)
+{
+    $detail = "";
+    //获取方法名
+    $name = $method->getName();
+    //判断函数是否是用户自定义函数
+    if ($method->isUserDefined()) {
+        $detail .= "$name 是用户自定义的函数<br>";
+    }
+    // 判断函数是否是内置函数
+    if ($method->isInternal()) {
+        $detail .= "$name 是内置函数<br>";
+    }
+    //判断方法是否是抽象方法
+    if ($method->isAbstract()) {
+        $detail .= "$name 是抽象方法<br>";
+    }
+    //判断方法是否是公开方法
+    if ($method->isPublic()) {
+        $detail .= "$name 是公开方法<br>";
+    }
+    //判断方法是否是受保护方法
+    if ($method->isProtected()) {
+        $detail .= "$name 是受保护方法<br>";
+    }
+    //判断方法是否是私有方法
+    if ($method->isPrivate()) {
+        $detail .= "$name 是私有方法<br>";
+    }
+    //判断方法是否是静态方法
+    if ($method->isStatic()) {
+        $detail .= "$name 是静态方法<br>";
+    }
+    //判断方法是否定义 final（final方法是不能被子类覆盖）
+    if ($method->isFinal()) {
+        $detail .= "$name 是final方法，不能被子类覆盖<br>";
+    }
+    //判断方法是否是构造方法
+    if ($method->isConstructor()) {
+        $detail .= "$name 是构造方法<br>";
+    }
+    //检查是否返回参考信息
+    if ($method->returnsReference()) {
+        $detail .= "$name 返回参考信息<br>";
+    }
+    return $detail;
+}
+
+
+$prod_class = new ReflectionClass('CdProduct');
+//获取 CdProduct 类的所有方法
+$methods = $prod_class->getMethods();
+foreach ($methods as $method) {
+    print methodData($method);
+    print "<br>----<br>";
+}
+```
+上边案例输出：
+
+__construct 是用户自定义的函数
+__construct 是公开方法
+__construct 是构造方法
+
+----
+api 是用户自定义的函数
+api 是私有方法
+
+----
+inter 是用户自定义的函数
+inter 是受保护方法
+
+----
+
+和 ReflectionClass 一样 ReflectionMethod 也提供了 getFileName()、getStartLine()、getEndLine()方法，因此可以通过这几个方法获取方法的源代码
+
+### 2.4.5 检查方法参数
+
+声明类方法时可以限制参数中对象的类型，因此检查方法的参数变得非常必要。反射API提供了 ReflectionParameter 类。要获得 ReflectionParameter 对象，需要 ReflectionMethod 对象的帮助。 ReflectionMethod::getParameters() 方法可返回 ReflectionParameter 对象数组。
+
+ReflectionParameter 可以告诉你参数的名称，变量是否可以按引用传递（即变量声明前有一个&符号），还可以告诉你参数类型提示和方法是否接受空值作为参数。
+
+下边不再举例，方法的使用和 ReflectionParameter、ReflectionMethod 类的方法适用方法一样
+
+### 2.4.6 使用反射API
+
+了解了反射API的基础知识，下面详细介绍如何使用反射API
+
+假设我们要创建一个类来动态调用 Module 对象，即该类可以自由加载第三方插件并集成进已有系统，而不需要把第三方的代码硬编码进原有的代码。要达到这个目的，可以在 Module 接口或抽象类中定义一个 execute() 方法，强制要求所有的子类都必须实现该方法。可以允许在外部XML配置文件中列出所有 Module 类。系统可以使用XML提供的信息来加载一定数目的 Module对象，然后对每个 Module 对象调用 execute()
+
+然而，如果每个 Module 需要不同的信息来完成任务，应该怎么做呢？在这种情况下，XML文件可以为每个Module提供属性键和值，Module的创建者可以为每个属性名提供setter方法。代码要确保根据某个属性名调用正确的setter方法。
+
+下面是Module接口和几个实现类的基础：
+
+```php
+class Person
+{
+    public $name;
+
+    function __construct($name)
+    {
+        $this->name = $name;
+    }
+}
+
+/**
+ * Interface Module 接口
+ */
+interface Module
+{
+    function execute();
+}
+
+/**
+ * 实现Module接口
+ * Class FtpModule
+ * ${DS}
+ */
+class FtpModule implements Module
+{
+    function setHost( $host )
+    {
+        print "FtpModule::setHost：$host\n";
+    }
+    function setUser( $user )
+    {
+        print "FtpModule::setUser：$user\n";
+    }
+    //实现接口的方法
+    function execute()
+    {
+        // TODO: Implement execute() method.
+        //执行一些操作
+    }
+}
+class PersonModule implements Module
+{
+    function setPerson( Person $person ) {
+        print "PersonModule::setPerson：{$person->name}\n";
+    }
+    //实现接口方法
+    function execute()
+    {
+        // TODO: Implement execute() method.
+    }
+}
+
+```
+这里，PersonModule 和 FtpModule 都提供了 execute() 方法的空实现。每个类也实现了 setter 方法。这些方法除了报告自己被调用之外不做任何事情。我们的系统规定所有的 setter 方法必须带有单个参数：要么是一个字符串，要么是可以用字符串参数来实例化的对象。PersonModule::setPerson() 方法希望有一个 Person 对象作为参数，所以在例子中设计了 Person 类。
+
+要使用 PersonModule 和 FtpModule，下一步是创建 ModuleRunner 类。它使用索引为模块名的多维数组来展示XML文件提供的配置信息。下面是代码：
+
+```php
+class ModuleRunner
+{
+    private $configData = array(
+        array(
+            "PersonModule" => array('person' => 'bob'),
+            "FtpModule" => array('host' => 'example.com', 'user' => 'anon'),
+        )
+    );
+    private $modules = array();
+}
+
+```
+
+ModuleRunner::$configData 属性包括了对两个 Module 类的引用。对于每个模块元素，代码保存一个包含属性集的子数组。 ModuleRunner 的init() 方法用于创建正确的 Module 对象，如下所示
+
+
+```php
+
+class Person
+{
+    public $name;
+
+    function __construct($name)
+    {
+        $this->name = $name;
+    }
+}
+
+/**
+ * Interface Module 接口
+ */
+interface Module
+{
+    function execute();
+}
+
+/**
+ * 实现Module接口
+ * Class FtpModule
+ * ${DS}
+ */
+class FtpModule implements Module
+{
+    function setHost( $host )
+    {
+        print "FtpModule::setHost：$host\n";
+    }
+    function setUser( $user )
+    {
+        print "FtpModule::setUser：$user\n";
+    }
+    //实现接口的方法
+    function execute()
+    {
+        // TODO: Implement execute() method.
+        //执行一些操作
+    }
+}
+class PersonModule implements Module
+{
+    function setPerson( Person $person ) {
+        print "PersonModule::setPerson：{$person->name}\n";
+    }
+    //实现接口方法
+    function execute()
+    {
+        // TODO: Implement execute() method.
+    }
+}
+
+class ModuleRunner
+{
+    private $configData = array(
+        array(
+            "PersonModule" => array('person' => 'bob'),
+            "FtpModule" => array('host' => 'example.com', 'user' => 'anon'),
+        )
+    );
+    private $modules = array();
+
+    public function init()
+    {
+        $interface = new ReflectionClass('Module');
+        foreach ($this->configData as $moduleName => $params) {
+            $module_class = new ReflectionClass( $moduleName );
+            //判断配置文件中的 Module 是否是实现了 Module
+            if ( ! $module_class->isSubclassOf($interface)) {
+                throw new Exception("未知 module ：$moduleName");
+            }
+            //创建类的新的实例。给出的参数将会传递到类的构造函数
+            $module = $module_class->newInstance();
+            foreach ($module_class->getMethods() as $method) {
+                //传入实例、方法、参数
+                $this->handleMethod($module, $method, $params);
+            }
+            array_push($this->modules, $module);
+        }
+    }
+
+    public function handleMethod(Module $module, ReflectionMethod $method, $params)
+    {
+
+    }
+}
+
+$test = new ModuleRunner();
+$test->init();
+```
+
+init() 方法循环遍历 ModuleRunner::$configData 数组，它尝试为对每个模块元素创建 ReflectionClass 对象。以不存在的类名调用 ReflectionClass 的构造方法时，会抛出异常，所以在真是情况下，我们应该在这里包含更多的错误处理。我们使用 ReflectionClass::isSubclassOf() 方法来确保模块类属于 Module 类型。
+
+在调用每个 Module 的 execute() 方法前，我们必须先创建 Module 对象的实例，而这正是 ReflectionClass::newInstance 方法的设计目的。newInstance 方法可接受任意数目的参数，这些参数将被传递到相应类的构造方法。如果一切正常，它返回类的实例（对于要正式发布的产品，应确保代码的安全：在实例化对象前，需要确认每个 Module 对象的构造方法是否需要参数）
+
+ReflectionClass::getMethods() 返回一个包含所有可用 ReflectionMethod 对象的数组。对于数组中的每个元素，代码调用 ModuleRunner::handleMethod() 方法，它有三个参数：一个Module实例、ReflectionMethod对象以及一个和Module关联的属性数组。handleMethod() 检验并调用 Module 对象的 setter 方法。
+
+```php
+class Person
+{
+    public $name;
+
+    function __construct($name)
+    {
+        $this->name = $name;
+    }
+}
+
+/**
+ * Interface Module 接口
+ */
+interface Module
+{
+    function execute();
+}
+
+/**
+ * 实现Module接口
+ * Class FtpModule
+ * ${DS}
+ */
+class FtpModule implements Module
+{
+    function setHost( $host )
+    {
+        print "FtpModule::setHost：$host\n";
+    }
+    function setUser( $user )
+    {
+        print "FtpModule::setUser：$user\n";
+    }
+    //实现接口的方法
+    function execute()
+    {
+        // TODO: Implement execute() method.
+        //执行一些操作
+    }
+}
+class PersonModule implements Module
+{
+    function setPerson( Person $person ) {
+        print "PersonModule::setPerson：{$person->name}\n";
+    }
+    //实现接口方法
+    function execute()
+    {
+        // TODO: Implement execute() method.
+    }
+}
+
+class ModuleRunner
+{
+    private $configData = array(
+        "PersonModule" => array('person' => 'bob'),
+        "FtpModule" => array('host' => 'example.com', 'user' => 'anon'),
+    );
+    private $modules = array();
+
+    public function init()
+    {
+        //获取 Module 类的相关信息
+        $interface = new ReflectionClass('Module');
+        foreach ($this->configData as $moduleName => $params) {
+            //获取配置文件中的 childModule 类的有关信息
+            $module_class = new ReflectionClass( $moduleName );
+            //判断配置文件中的 childModule 是否是 Module 的一个子类
+            if ( ! $module_class->isSubclassOf($interface)) {
+                //如果不是子类抛出异常
+                throw new Exception("未知 module ：$moduleName");
+            }
+            //创建类的新的实例
+            $module = $module_class->newInstance();
+            //获取 ReflectionMethod 对象的数组
+            foreach ($module_class->getMethods() as $method) {
+                //传入实例、方法、参数
+                $this->handleMethod($module, $method, $params);
+            }
+            //追加实例化的 Module 到 module 数组中
+            array_push($this->modules, $module);
+        }
+    }
+
+    public function handleMethod(Module $module, ReflectionMethod $method, $params)
+    {
+        //从 ReflectionMethod 对象中获取函数名
+        $name = $method->getName(); //获取方法名
+        //通过 ReflectionParameter 数组返回参数列表
+        $args = $method->getParameters(); //一组 ReflectionParameter 对象表示的参数
+        //判断参数是否是一个且函数名以 set 开头
+        if ( count($args) != 1 || substr($name, 0, 3) != "set") {
+            return false;
+        }
+        //从第三个字符截取函数名并转小写
+        $property = strtolower(substr($name, 3));
+        //判断后半段的函数名和配置文件中的函数名key是否一致
+        if ( !isset($params[$property])) {
+            return false;
+        }
+
+        //ReflectionClass 获取参数类型可能是一个类，例如 Person $person
+        $arg_class = $args[0]->getClass();
+        //如果没有获取到参数直接执行反射调用函数
+        if ( empty( $arg_class )) {
+            //调用反射函数，第一个参数：对象，第二个参数方法名
+            $method->invoke($module, $params[$property]);
+        } else {
+            //存在方法参数情况下，调用反射函数，第一个参数：对象，第二个参数根据 ReflectionClass $arg_class 实例化参数
+            $method->invoke($module, $arg_class->newInstance( $params[$property] ));
+        }
+    }
+}
+
+$test = new ModuleRunner();
+$test->init();
+``` 
+
+## **3. 对象与设计**
