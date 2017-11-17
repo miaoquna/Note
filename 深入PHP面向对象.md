@@ -29,7 +29,47 @@
 		- [2.4.5 检查方法参数](#245-检查方法参数)
 		- [2.4.6 使用反射API](#246-使用反射api)
 - [3. 对象与设计](#3-对象与设计)
+	- [3.1 面向对象设计和过程式编程](#31-面向对象设计和过程式编程)
+		- [3.1.1 职责](#311-职责)
+		- [3.1.2 内聚](#312-内聚)
+		- [3.1.3 耦合](#313-耦合)
+		- [3.1.4 正交](#314-正交)
+	- [3.2 选择类](#32-选择类)
+	- [3.3 多态](#33-多态)
+	- [3.4 封装](#34-封装)
+	- [3.5 忘记细节](#35-忘记细节)
+	- [3.6 4个方向标](#36-4个方向标)
+		- [3.6.1 代码重复](#361-代码重复)
+		- [3.6.2 类知道的太多](#362-类知道的太多)
+		- [3.6.3 万能的类](#363-万能的类)
+		- [3.6.4 条件语句](#364-条件语句)
+	- [3.7 UML 统一建模语言](#37-uml-统一建模语言)
+		- [3.7.1 类图](#371-类图)
+		- [3.7.2 时序图](#372-时序图)
 
+- [4. 设计模式](#4-设计模式)
+	- [4.1 设计模式概览](#41-设计模式概览) 
+		- [4.2.1 命名](#421-命名)
+		- [4.2.2 问题](#422-问题)
+		- [4.2.3 解决方案](#423-解决方案)
+		- [4.2.4 效果](#424-效果)
+- [5. 模式原则](#5-模式原则)
+	- [5.1 组合与继承](#51-组合与继承)
+	- [5.2 使用组合](#52-使用组合)
+	- [5.3 解耦](#53-解耦)
+		- [5.3.1 问题](#531-问题)
+		- [5.3.2 降低耦合](#532-降低耦合)
+	- [5.4 针对接口编程，而不是针对实现编程](#54-针对接口编程而不是针对实现编程)
+	- [5.5 变化的概念](#55-变化的概念)
+	- [5.6 父子关系](#56-父子关系)
+- [6.生成对象](#6-生成对象)
+	- [6.1 生成对象的问题和解决方法](#61-生成对象的问题和解决方法)
+	- [6.2 单例模式](#62-单例模式)
+		- [6.2.1 问题](#621-问题)
+		- [6.2.2 实现](#622-实现)
+		- [6.2.3 结果](#623-结果)
+	- [6.3 工厂方法模式](#63-工厂方法模式)
+ 
 
 ## **1. 高级特性**
 
@@ -1404,3 +1444,933 @@ $test->init();
 ``` 
 
 ## **3. 对象与设计**
+
+## 3.1 面向对象设计和过程式编程
+
+先来看一段用来读写 key/value 键值对文件的过程式编程：
+```php
+/**
+ * 从文件中读取键值对参数
+ * @param $sourceFile   文件名
+ * @return array
+ */
+function readParams($sourceFile)
+{
+    $params = array();
+    return $params;
+}
+
+/**
+ * 把键值对数组写入文件
+ * @param $params   键值对数组
+ * @param $sourceFile   文件名
+ */
+function writeParams($params, $sourceFile)
+{
+    //写入文本参数到 $sourceFile
+}
+
+$file = './param.txt';
+$array['key1'] = "val1";
+$array['key2'] = "val2";
+$array['key3'] = "val3";
+writeParams($array, $file); //将数组写到文件
+$outPut = readParams($file); //从文件读取键值对到数组
+print_r($outPut); //输出键值对数组
+```
+
+上边这段过程式编程看似流程比较合理，如果被告知这个功能要支持xml格式、json格式等其他格式时，可能会使我们的代码更难维护。下面是扩展了xml格式的读写功能
+```php
+/**
+ * 从文件中读取键值对参数
+ * @param $sourceFile   文件名
+ * @return array
+ */
+function readParams($sourceFile)
+{
+    $params = array();
+    if (preg_match('/\.xml$/i', $sourceFile)) {
+        //从xml中读取参数
+    } else {
+        //从文本文件中读取参数
+    }
+    return $params;
+}
+
+/**
+ * 把键值对数组写入文件
+ * @param $params   键值对数组
+ * @param $sourceFile   文件名
+ */
+function writeParams($params, $sourceFile)
+{
+    if (preg_match('/\.xml$/i', $sourceFile)) {
+        //把参数写入xml文件
+    } else {
+        //把参数写入txt文本文件
+    }
+}
+```
+如上所示，我们在两个函数中都要检测XML扩展名，这样重复性代码会产生问题。如果我们还要被要求支持其他格式的参数，就要始终保持 readParams 和 writeParams 函数的一致性。
+
+下面尝试使用面向对象的方式来处理。首先，创建一个抽象的基类来定义类型接口：
+
+```php
+/**
+ * 键值对管理的抽象类
+ * Class ParamHandler
+ * ${DS}
+ */
+abstract class ParamHandler
+{
+    protected $source;  //来源
+    protected $params = array(); //键值对数组
+    public function __construct( $source )
+    {
+        //初始化来源
+        $this->source = $source;
+    }
+    /**
+     * 追加键值对
+     * @param $key
+     * @param $val
+     */
+    public function addParam($key, $val)
+    {
+        $this->params[$key] = $val;
+    }
+
+    /**
+     * 获取所有键值对
+     * @return array
+     */
+    public function getAllParams()
+    {
+        return $this->params;
+    }
+
+    /**
+     * 检测文件名，返回不同的实现类
+     * @param $filename
+     * @return TextParamHandler|XmlParamHandler
+     */
+    static function getInstance( $filename ) {
+        //判断文件类型
+        if (preg_match('/\.xml$/i', $filename)) {
+            return new XmlParamHandler( $filename );
+        } else {
+            return new TextParamHandler( $filename );
+        }
+    }
+
+    /**
+     * 抽象的写入类，由实现这个类的子类来实现
+     * @return mixed
+     */
+    abstract function write();
+    /**
+     * 抽象的读取类，由实现这个类的子类来实现
+     * @return mixed
+     */
+    abstract function read();
+}
+
+class TextParamHandler extends ParamHandler
+{
+    //实现父类的写入方法
+    public function write()
+    {
+        // TODO: Implement write() method.
+        //实现txt格式的写入
+    }
+    //实现父类的读取方法
+    public function read()
+    {
+        // TODO: Implement read() method.
+        //实现txt格式的读取
+    }
+}
+class XmlParamHandler extends ParamHandler
+{
+    //实现父类的写入方法
+    public function write()
+    {
+        // TODO: Implement write() method.
+        //实现xml格式的写入
+    }
+    //实现父类的读取方法
+    public function read()
+    {
+        // TODO: Implement read() method.
+        //实现xml格式的读取
+    }
+}
+
+//xml格式的写入
+$test = ParamHandler::getInstance("./params.xml");
+$test->addParam('key1', 'val1');
+$test->addParam('key2', 'val2');
+$test->addParam('key3', 'val3');
+$test->write(); //写入xml格式
+//txt格式的读取
+$test = ParamHandler::getInstance("./params.txt");
+$test->read(); //从文本格式中读取
+```
+
+从上面面向对象的实现方式，我们可以明显的发现我们多增加了两种子类用类对应不同的文件操作，相信你很快会明白，在以后你想要增加其他文件格式的读取的时候只需要继承父类，实现读写方法即可增加扩展。这就是我理解的面向对象的好处。
+
+`注意：我们在扩展其他格式的时候，也会遇到需要手动去修改父类的 getInstance() 方法增加对应的子类实现，我们会在后边的章节中讨论对象创建的问题，看看能否更好的解决这个问题`
+
+### 3.1.1 职责
+
+在过程式编程时，控制代码的职责是判断文件格式，它判断了两次而不是一次。条件语句被绑定到函数中，但这仅是将判断的流程隐藏起来。对readParams 的调用和对 readParams 调用必须发生在不同的地方，因此我们不得不在每个函数中重复检测文件扩展名。
+
+在面向对象编程时，我们在静态方法 getInstance() 中进行文件格式的选择，并且仅在 getInstance() 中检测文件扩展名一次，就可以决定使用哪一个合适的子类。抽象类并不负责实现读写功能。它不需要知道自己属于哪个子类就可以使用给定的对象。它只需要知道自己在使用 ParamHandler 对象，并且 ParamHandler 对象支持 write() 和 read() 方法。过程代码忙于处理细节，而面向对象代码只需要一个接口即可工作，并不用考虑实现的细节。由于实现由对象负责，而不是抽象类负责，所以我们能够很方便地增加对新格式的支持。
+
+### 3.1.2 内聚
+
+`内聚` 是一个模块内部各成分之间相关联程度的度量。理想情况下，各组件职责清晰、分工明确。如果代码间的关联范围太广，维护就会很困难。因为你需要在修改某部分代码的同时修改相关的代码。
+
+### 3.1.3 耦合
+
+`耦合` 当系统各部分代码紧密绑定在一起时，就会产生紧密耦合，这时在一个组件中的变化会迫使其他组件随之改变。紧密耦合并不是过程式代码特有的，但是过程式代码比较容易产生耦合问题。
+
+例如：刚才过程编程中出现的 writeParams 和 readParams 函数中，使用了相同的文件扩展名判断来决定如何处理数据，因此，我们要改写一个函数，就不得不同时改写另一个函数。而面向对象的示例中则将每个子类彼此分开，也将其与父类代码分开。如果需要增加新的参数格式，只需要简单地创建响应的子类，并在父类的静态方法 getInstance() 中增加一行文件检测代码即可
+
+`面向对象编程六字口诀：高内聚、低耦合`
+
+### 3.1.4 正交
+
+`正交` 指将职责相关的组件紧紧组合在一起，而与外部系统环境隔开，保持独立。
+
+正交主张重用组件，期望不需要任何特殊配置就能把一个组件插入到新系统中。这样的组件有明确的与环境无关的输入和输出。正交代码使修改变的简单，因为修改一个实现只会影响到被改动的组件本身
+
+## 3.2 选择类
+
+选择类就是把需求转换成实体类，可以模拟真实世界。最主要的就是定义类的界限往往会比我们想象的更加困难。面向对象系统通常反映真实的事物，如Person、Shop等。
+
+在定义一个类的时候最好让一个类只有一个主要的职责，并且任务要尽可能独立。
+
+## 3.3 多态
+
+`多态` 是指在一个公用接口后面维护多个实现。
+
+在 readParams() 函数中我们不难发现，每一个if条件都暗示着我们最终生成的一个子类：XmlParmaHandler 或 TextParamHandler，他们继承了抽象基类 ParamHandler 的 write 和 read 方法。
+
+要特别注意的是多态并没有消除条件语句。像 ParamHandler::getInstance() 这样的方法经常通过 switch 或 if 决定要返回的对象，但多态可以把条件代码集中到一个地方。
+
+多态的体现形式就是 由子类继承父类，实现多种不同的处理。
+
+## 3.4 封装
+
+封装就是对代码隐藏数据和功能。要实现封装最简单的办法就是将属性定义为 private 或 protected。通过对使用者隐藏属性，我们创建了一个接口并防止在偶然情况下污染对象中的数据。
+
+`多态` 是另外一种封装。通过把不同的实现放在公共接口之后，我们对调用者隐藏了功能的实现。也就是说，任何在接口背后发生的改变对外界的系统来说都是可忽略的。我们可以增加新类或改变类中的代码，而不会产生错误。
+
+从某种程度上说，封装是面向对象编程的关键。我们的目标是使系统中的每一部分都尽可能独立
+
+## 3.5 忘记细节
+
+在设计阶段，让大脑空白一段时间，只考虑系统的关键参与者：项目需要的对象类型和这些对象的接口。不被“数据库代码需要用户名和密码”这样的经验所左右，而要让代码中的结构和关系类引导你，你会发现定义一个良好的接口之后加入实现代码很容易。接着你可以灵活地选择、改进或扩展一个可能需要的实现，而不会影响到外界的系统。
+
+## 3.6 4个方向标
+
+没有人能在设计的时候绝对正确。修改代码时，很容易失去控制。在这里加个方法，在那里加一个新类，慢慢的导致系统变的混乱。下边给出了 4 个说明代码需要检查的方式
+
+### 3.6.1 代码重复
+
+请认真查看系统中代码重复的地方，很可能他们本应该放在一起。重复通常意味着紧密耦合。如果你改变了一个地方的代码，是否需要同时修改另一个地方的代码？如果需要修改，那么这两处代码很可能本该放在同一个地方。
+
+### 3.6.2 类知道的太多
+
+从一个方法传递参数到另一个方法时可能会产生问题。为什么不使用全局变量减少麻烦呢？
+
+全局变量有它们自己的作用，但是使用时一定要慎重考虑。使用全局变量或者允许一个类知道它之外的作用域的内容，你就可以把这个类绑定到外部环境中，让它很难重用，并无法保持独立。我们要尽量把一个类限制在自己的环境中。
+
+### 3.6.3 万能的类
+
+你的类是否尝试一次完成很多工作？如果是的话，就要检查类的职责列表了。你会发现一些功能可以提取出来，成为一个基类。
+
+如果类的职责过多，那么在创建子类的时候会产生问题。你要用子类扩展什么样的功能？如果想要让子类负责更多的事情，该怎么办？这样可能会产生太多的子类或者过度依赖于条件语句。
+
+### 3.6.4 条件语句
+
+在项目中我们常有非常好的理由来使用 if 和 switch语句，但有时这样的结构会让我们不得不使用多态。
+
+如果你发现在一个类中频繁地进行特定条件的判断，特使是当你发现这条件判断在多个方法中出现时，就说名这个类需要拆分成两个或者更多。检查一下条件代码的结构，看看是否应该将某些功能独立出来放在独立的类中。拆分出来的几个类应该有一个共享的抽象基类，这时你需要知道如何传递正确的子类给调用者。
+
+## 3.7 UML 统一建模语言
+
+强大的图形化语法来描述面向对象系统。
+
+上学的时候都接触过 统一建模语言 但是估计都没有深入过。这次好好看看
+
+### 3.7.1 类图
+
+类图可以清晰地描述结构和模式。通过类图我们可以清楚地看出结构和模式的意图，而如果只阅读代码片段和项目符号列表，则很难做到这一点。
+
+不再详细说明，可以参考 深入PHP++面向对象 书里边给出的设计图
+
+### 3.7.2 时序图
+
+不再详细说明，可以参考 深入PHP++面向对象 书里边给出的设计图
+
+
+## **4. 设计模式**
+
+## 4.1 设计模式概览
+
+一个设计模式的核心由4部分组成：命名、问题、解决方案、效果
+
+### 4.2.1 命名
+
+命名非常重要。命名丰富了程序员的语言，少许简短的文字便可表示相当复杂的问题和解决方案。命名必须兼顾简洁性和描述性。找到一个好名字，成了我们在开发模式目录中最困难的部分之一。
+
+### 4.2.2 问题
+
+无论解决方案如何优雅，问题及问题发生的环境都是一个模式的基础。
+找出问题比使用模式目录中的解决方案更难。这正是某些模式的解决方案被误用或过度使用的原因之一。
+模式会小心谨慎地描述问题的空间。问题会被置于环境中简明扼要地描述，通常还会有典型的范例及一个或多个图标。问题会被分解为不同细节和各种表现。同时任何可以帮助发现问题的警告标志都会在模式中被描述
+
+### 4.2.3 解决方案
+
+解决方案最初是和问题放在一起的，并常用UML类图和交互图更详细地进行描述。而模式通常也包含一个代码范例。
+尽管代码也许是现成的，但解决方案从来不是简单剪切及粘贴。
+
+### 4.2.4 效果
+
+在设计代码的时候，你所做的每一个决定都会带来不同的结果。当然我们总是希望能得到令人满意的针对问题的解决方案。解决方案一旦被部署，理想情况下它也许会非常适合与其他模式一同工作，但也要留心是否会带来风险。
+
+## 4.3 设计模式格式
+
+## **5. 模式原则**
+## 5.1 组合与继承
+
+```php
+abstract class Lesson
+{
+    protected $duration;    //课程时间
+    const FIXED = 1;      //固定收费
+    const TIMED = 2;    //按时收费
+    private $costType; // 收费方式
+    function __construct($duration, $costType = 1)
+    {
+        $this->duration = $duration;
+        $this->costType = $costType;
+    }
+    //计算费用
+    function cost() {
+        switch ( $this->costType ) {
+            case self::TIMED :
+                return (5 * $this->duration);
+                break;
+            case self::FIXED :
+                return 30;
+                break;
+            default:
+                $this->costType = self::FIXED;
+                return 30;
+        }
+    }
+    function chargeType() {
+        switch ( $this->costType ) {
+            case self::TIMED :
+                return "按小时收费";
+                break;
+            case self::FIXED :
+                return "固定收费";
+            default:
+                $this->costType = self::FIXED;
+                return "固定收费";
+        }
+    }
+}
+class Lecture extends Lesson
+{
+
+}
+class Seminar extends Lesson
+{
+
+}
+
+$lecture = new Lecture(5, Lesson::FIXED);
+print "{$lecture->cost()}({$lecture->chargeType()})<br>";
+$seminar = new Seminar(3, Lesson::TIMED);
+print "{$seminar->cost()}({$seminar->chargeType()})<br>";
+```
+
+上边这段代码为课程提供了不同的收费机制，利用 继承 Lesson 抽象类这种继承模式，我们可以在课程的实现之间切换。而客户端代码只知道它是在处理一个 Lesson 课程对象，因此收费细节就会变得透明。
+
+可是如果引入一组新的课程，又会怎么样呢？比如我们要处理演讲和研讨会。因为演讲和研讨会会以不同的方式注册登记和教授课程，所以他们会要求独立的类。因此在设计上现在会有两个分支。我们需要处理不同的定价策略并区分演讲和研讨会。
+
+上边的这段代码在增加需求的时候就会不灵活，而且要在抽象类中使用一堆的判断语句，这样就违背的类的多态设计原则，所以我们考虑使用下边的组合方式来区分 课程 和 计费功能，这样就可以灵活组合你想要的课程以及收费模式
+
+## 5.2 使用组合
+
+`应用策略模式` 的典型案例:
+
+```php
+/**
+ * 费用计算组件
+ * Class CostStrategy
+ * ${DS}
+ */
+abstract class CostStrategy
+{
+    /**
+     * 计算费用
+     * @param Lesson $lesson    科目类型
+     * @return mixed
+     */
+    abstract function cost(Lesson $lesson);
+
+    /**
+     * 判断类型
+     * @return mixed
+     */
+    abstract function chargeType();
+}
+
+/**
+ * 费用计算组件的多态实现
+ * Class TimedCostStrategy  计时费用
+ * ${DS}
+ */
+class TimedCostStrategy extends CostStrategy
+{
+    function cost(Lesson $lesson)
+    {
+        // TODO: Implement cost() method.
+        return ($lesson->getDuration() * 5);
+    }
+    function chargeType()
+    {
+        // TODO: Implement chargeType() method.
+        return "计时费用";
+    }
+}
+
+/**
+ * 费用计算组件的多态实现
+ * Class TimedCostStrategy  固定费用
+ * ${DS}
+ */
+class FixedCostStrategy extends CostStrategy
+{
+    function cost(Lesson $lesson)
+    {
+        // TODO: Implement cost() method.
+        return 30;
+    }
+    //收费类型
+    function chargeType()
+    {
+        // TODO: Implement chargeType() method.
+        return "固定费用";
+    }
+}
+
+/**
+ * 课程类
+ * Class Lesson
+ * ${DS}
+ */
+abstract class Lesson
+{
+    private $duration;
+    private $costStrategy;
+    function __construct($duration, CostStrategy $strategy)
+    {
+        $this->duration = $duration;   //课程时间
+        $this->costStrategy = $strategy; //课程计费方式
+    }
+    //计算费用
+    function cost()
+    {
+        return $this->costStrategy->cost( $this );
+    }
+    //获取收费方式
+    function chargeType()
+    {
+        return $this->costStrategy->chargeType();
+    }
+    //获取课程时长
+    function getDuration()
+    {
+        return $this->duration;
+    }
+    //Lesson 的更多方法
+}
+
+/**
+ * 演讲课
+ * Class Lecture
+ * ${DS}
+ */
+class Lecture extends Lesson {
+    //Lecture 特定实现
+}
+
+/**
+ * 培训课
+ * Class Seminar
+ * ${DS}
+ */
+class Seminar extends Lesson {
+    //Seminar特定的实现
+}
+
+//培训课类需要两个参数，课程时长 和 按时计算费用收费的类的实例
+$lessons[] = new Seminar( 4, new TimedCostStrategy());
+//演讲课类需要两个参数，课程时长 和 按固定费用收费的类的实例
+$lessons[] = new Lecture( 4, new FixedCostStrategy());
+
+foreach ($lessons as $lesson) {
+    print "收费标准：{$lesson->cost()}，收费方式：{$lesson->chargeType()}<br>";
+}
+```
+
+从上边代码可以看出，组合使用对象比使用继承体系更灵活，而且不需要进行一大堆的选择判断，因为组合可以以多种方式动态的处理任务，不过这可能导致代码的可读性下降。因为组合需要更多的对象类型，而这些类型的关系并不像在继承关系中那般有固定的可预见性，所以要理解系统中类和对象的关系会有些困难。
+
+## 5.3 解耦
+
+我们在了解了创建独立组件的意义后发现，如果类之间有非常强的依赖性，那么这样的系统就很难维护，因为系统里的一个改动会引起一连串的相关改动。
+
+### 5.3.1 问题
+
+重用性是面向对象设计的主要目标之一，而紧耦合便是它的敌人。当我们看到系统中一个组件的改变迫使系统其他许多地方也发生改变的时候，就可诊断为紧耦合了。为了能安全地做变动，我们总是期望创建能够独立存在的组件。在修改组件式，其独立程度会决定你的修改对系统中其他组件的影响程度，系统的其他组件甚至有可能会因此失败。
+
+在 [5.1 节](#51-组合与继承) 中，我们看到过紧耦合的例子。因为费用计算逻辑在I Lecture 和 Seminar 类型中都存在，所以对 TimedPriceLecture 的一个改变将会迫使在 TimedPriceSeminar 中同样逻辑的响应变化。如果仅改动一个类而不改动其他类的代码，系统将无法正常工作，而且没有来自PHP的任何错误。而我们第一个解决方案（使用条件语句）在 cost() 和 chargeType() 方法之间生成了一个类似的依赖关系。
+
+通过应用策略模式，我们将费用算法提取为 CostStragey 类型，将算法放置在共同接口后，并且每个算法只需要实现一次。
+
+不过当系统中许多类都显示嵌入到一个平台或环境中时，其他类型的耦合仍时有发生。比如建立了一个基于Mysql数据库的系统。你可能会用一些诸如 mysql_connect() 和 mysql_query() 的函数来与数据库服务器交互。
+
+如果现在你被要求在不支持Mysql的服务器上部署系统，比如要把这个项目都转化成使用 SQLite，那么你可能被迫要改变整个代码，并且面临维护应用程序的两个并行版本的状况。
+
+这里的问题不再与系统对外部平台的依赖。这样的依赖是无法避免的。我们确实需要使用与数据库交互的代码。但这样的代码散布在整个项目中时，问题就来了。与数据库交互不是系统中大部分类的首要责任，因此最好的策略就是提取这样的代码并将其组合在公共接口后。这可以使类之间互相独立。同时，通过在一个地方集中你的`入口`代码，就能更轻松地切换到一个新的平台而不会影响到系统中更大的部分。这个把具体实现隐藏在一个干净的接口后面的过程，正是大家所知道的 `封装`。
+
+PEAR中的一个 MDB2数据库连接包里的 MDB2类 提供了一个静态方法 connect()， 它接受一个 DSN 字符串参数。根据这个字符串的构成，它返回 MDB2_Driver_Common 类的一个特定实现。因此对于字符串 `mysql://`，connect() 方法返回一个 MDB2_Driver_mysql对象，而对于一个以 `sqlite://` 开头的字符串，它将返回一个 MDB2_Driver_sqlite 对象。
+
+下面是 MDB2 的类结构：
+```php
+class MDB2
+{
+    /**
+     * 链接数据库
+     * @param $dsn  链接dsn字符串
+     */
+    public function connect( $dsn )
+    {
+        //创建 MDB2_Driver_Common 类
+    }
+}
+class MDB2_Driver_Common
+{
+    //根据 dsn 字符串判断选择实例化数据库类
+}
+class MDB2_Driver_mysql extends MDB2_Driver_Common
+{
+
+}
+class MDB2_Driver_sqlite extends MDB2_Driver_Common
+{
+
+}
+```
+
+### 5.3.2 降低耦合
+
+为了灵活处理数据库代码，我们应该将应用逻辑从数据库平台的特殊性中解耦出来。
+
+例如，课程系统中应该包含注册组件，从而向系统中添加新课程。添加了新课程后，应该通知管理员，这是注册程序的一部分。对于应该通过邮件发送通知还是通过文本消息发送通知，系统用户的意见不一致。实际上，他们太挑剔了，以至于你怀疑将来他们会想使用一种新的信息传达模式。此外，他们希望发生任何事情都会收到通知。所以，修改了通知模式的一处意味着要对多处做同样的修改。
+
+如果已经硬编码了对 Mailer 类或 Texter 类的调用，那么系统就与特殊的通知模式紧密相关了。就像利用专门的数据库API时，系统就与某数据库平台紧密相关一样。
+
+下面的这些代码对使用通知程序的系统隐藏了通知程序的实现细节：
+```php
+class RegistrationMgr
+{
+    public function register(Lesson $lesson)
+    {
+        //处理该课程
+        //发送通知
+        $notifier = Notifier::getNotifier(); //获取消息通知方式
+        $notifier->inform("创建了新课程");
+    }
+}
+abstract class Notifier
+{
+    /**
+     * 该方法获取具体的 Notifier 对象
+     * 在实际项目中，Notifier对象的选择是由一种灵活的机制（比如配置文件）所决定的。而不是这里的写的随机数进行判断选择哪种发送方式
+     * @return MailNotifier|TextNotifier
+     */
+    static function getNotifier()
+    {
+        //根据配置或其他逻辑获得具体的类
+        if (rand(1, 2) == 1) {
+            return new MailNotifier();
+        } else {
+            return new TextNotifier();
+        }
+    }
+
+    /**
+     * 发送消息
+     * @param $message
+     * @return mixed
+     */
+    abstract function inform( $message );
+}
+class MailNotifier extends Notifier
+{
+    public function inform( $message )
+    {
+        // TODO: Implement inform() method.
+        print "发送了邮件消息通知<br>";
+    }
+}
+
+class TextNotifier extends Notifier
+{
+    public function inform($message)
+    {
+        // TODO: Implement inform() method.
+        print "发送了文本消息通知<br>";
+    }
+}
+
+//Seminar 类可参考上边 5.2 使用组合 里边实现的 Lesson 类
+$lessons1 = new Seminar( 4, new TimedCostStrategy() );
+$mgr = new RegistrationMgr();
+$mgr->register($lessons1);   //注册课程
+```
+
+## 5.4 针对接口编程，而不是针对实现编程
+
+把不同的实现隐藏在父类所定义的共同接口下。然后客户端代码需要一个父类的对象而不是一个子类的对象，从而使客户端代码可以不用关心它实际得到的是哪个具体实现。
+
+我们在 Lesson::cost() 和 Lesson::chargeType() 中创建的并行条件语句，就是需要多态的常见标志。这样的条件语句使代码很难维护，因为条件表达式的改变必然要求与之对应的代码主体也随之改变，所以条件语句有时会被称作实现了一个 `模拟继承`。
+
+而通过把计费算法放置在一个实现 CostStrategy 的独立的类中，我们可以移除重复代码，也可以使在未来加入新的计费策略变得更加容易。
+
+从客户端代码的角度看，类方法参数为抽象或通用类型通常都是不错的主意。如果参数对对象类型要求过于严格，就会限制代码在运行时的灵活性。
+
+当然，如何使用参数类型提示来调整参数对象的“通用性”是需要仔细权衡的。选择过于通用，则会降低方法的安全性。而如果需要某个子类型的特有功能，那么方法接受另一个子类类型则可能会有风险。
+
+尽管如此，若参数的类型匹配限制过于严格，那么将无法得到多态带来的好处。下面是修改过的 Lesson 类里的一段代码：
+```php
+function __construct( $duration, FixedPriceStrategy $strategy) {
+	$this->duration = $duration;
+	$this->costStrategy = $strategy;
+}
+```
+这个示例中的设计有两个问题。第一，Lesson 对象现在与一个特定的费用策略绑定，这使我们丧失了组合动态组件的能力。第二，对 FixedPriceStrategy 类的显式引用迫使我们必须维护这个特殊实现。
+
+而通过要求一个公共的接口，你能将任何 CostStrategy 实现合并到一个 Lesson 对象:
+```php
+function __construct( $duration, CostStrategy $strategy) {
+	$this->duration = $duration;
+	$this->costStrategy = $strategy;
+}
+```
+换句话说，我们把 Lesson 类从具体的费用计算中分离出来了。我们所做的就是提供接口并保证所提供的对象会实现接口。
+
+当然，面向接口编程无法回答如何实例化它的子类的问题。你会选择实例化哪个子类来对应相应的条件呢？
+
+## 5.5 变化的概念
+
+一旦作出设计决定，解释它就很容易。但是你如何决定从哪里开始设计呢？
+
+《设计模式》建议你 “把变化的概念封装起来”。在我们的示例中，“变化的概念”便是费用算法。计费不仅仅是示例中两个可能的策略之一，而且它也是明显需要扩充的：如特殊供应、海外学生费用、推介性折扣等各种各样的可能性。
+
+我们发现为这个变化直接创建子类是不合适的，于是使用了条件语句。通过把变化的元素放入同一个类中，我们强调了封装的适用性。
+
+《设计模式》建议积极搜索类中变化的元素，并评估它们是否适合使用新类型来封装。根据一定条件，变化的元素可被提取出来形成子类（TiemdCostStrategy 和 FixedCostStrategy）,而这些元素共同拥有一个抽象的父类（CostStrategy）。而这个新类型（CostStrategy）能被其他类使用。这么做有以下好处：
+
+`专注于职责`、`通过组合提高灵活性`、`使用继承层级体系更紧凑和集中`、`减少重复`
+
+那么如何发现变化的元素呢？误用继承便是一个标志。误用的表现可能包括一次实现不同分支的继承，也可能包括子类化某个算法，而该算法对于该对象类型的核心职责是偶然的。当然，适合封装“变化元素”的另一个标志便是出现了条件表达式。
+
+## 5.6 父子关系
+
+模式的一个问题便是不必要或不恰当地使用模式。这让模式在某些领域名声不佳。因为模式解决方案很棒，所以它会引诱你把模式应用在任何你认为合适的地方，无论他们是否真的的适合用来达到目标。
+
+`极限编程`提供了几个可以使用的相关原则。第一个是“你还不需要它”。这通常被应用在应用程序的功能上，但是对于模式来说也有意义。
+
+当使用PHP开发较大项目时，会把应用程序分离到各个层中，把应用程序逻辑从表现层和持久化层中分离开来。通常联合使用各种核心模式和企业模式。
+
+然而当为一个小型商务网站建立一个用户反馈表单时，我可能只在单一页面脚本中使用过程式代码。此时，不需要大量的灵活性，不需要以后基于最初版本进行大量扩展，也不需要使用那些在更庞大的系统中解决问题的模式，而是应用极限编程的第二个原则：“用最简单的方式来完成任务”
+
+当使用模式目录时，通过示例代码可能巩固你脑中解决方案的结构和流程。然而在应用模式之前，要特别注意目录中“问题”或者“何时使用”那部分，并且熟读模式的效用。
+
+## **6.生成对象**
+
+## 6.1 生成对象的问题和解决方法
+
+对象创建有时会成为面向对象设计的一个薄弱环节。在前一章中，我们看到“针对接口编程，而不是针对实现编程”的原则。就此而言，鼓励在类中使用抽象的超类。这使代码更具有灵活性，可以让你在运行时使用不同的具体子类中实例化的对象。但这样做也有副作用，那就是对象实例化被推迟。
+
+类 Employee 的构造方法以姓名字符串为参数，实例化了一个特定对象：
+
+```php
+abstract class Employee
+{
+    protected $name;
+    function __construct($name)
+    {
+        $this->name = $name;
+    }
+    abstract function fire();
+}
+class Minion extends Employee
+{
+    function fire()
+    {
+        // TODO: Implement fire() method.
+        print "{$this->name}:I'll clear my desk<br>";
+    }
+}
+class NastyBoss
+{
+    private $employees = array();
+    function addEmployee( $employeeName )
+    {
+        $this->employees[] = new Minion( $employeeName );
+    }
+    function projectFails() {
+        if ( count($this->employees ) > 0 ) {
+            //删除数组最后一个元素
+            $emp = array_pop( $this->employees );
+            $emp->fire();
+        }
+    }
+}
+$boss = new NastyBoss();
+$boss->addEmployee("harry");
+$boss->addEmployee("bob");
+$boss->addEmployee("mary");
+$boss->projectFails();
+
+```
+
+如你所看到的，我们定义了一个抽象基类 Employee（雇员）以及一个受压迫员工的具体实现 Minion。NastyBoss::addEmployee() 方法通过接受的名字字符串来实例化新的 Minion 对象。一旦 NastyBoss(苛刻的老板)对象遇到了麻烦（通过 NastyBoss::projectFails()方法），就会解雇一个 Minion对象。
+
+由于在 NastyBoss 类中直接实例化 Minion 对象，代码的灵活性受到了限制。如果 NastyBoss 对象可以使用 Employee 类的任何实例，那么代码在运行时就能应付更多特殊的 Employee。
+
+如果 NastyBoss 类不实例化 Minion 对象，那么 Minion 对象从何而来？许多人通常在方法声明中限制参数类型来巧妙避开这个问题，然后除了在测试时实例化对象，在其他时候尽量避免提及。
+
+```php
+abstract class Employee
+{
+    protected $name;
+    function __construct($name)
+    {
+        $this->name = $name;
+    }
+    abstract function fire();
+}
+class Minion extends Employee
+{
+    function fire()
+    {
+        // TODO: Implement fire() method.
+        print "{$this->name}:我立马走人<br>";
+    }
+}
+//新的 Employee 实现类
+class CluedUp extends Employee
+{
+    function fire()
+    {
+        // TODO: Implement fire() method.
+        print "{$this->name}:我会打电话给我的律师<br>";
+    }
+}
+class NastyBoss
+{
+    private $employees = array();
+    function addEmployee(Employee $employee)
+    {
+        $this->employees[] = $employee;
+    }
+    function projectFails() {
+        if ( count($this->employees ) > 0 ) {
+            //删除数组最后一个元素
+            $emp = array_pop( $this->employees );
+            $emp->fire();
+        }
+    }
+}
+$boss = new NastyBoss();
+$boss->addEmployee( new Minion("harry") );
+$boss->addEmployee( new CluedUp("bob") );
+$boss->addEmployee( new Minion("mary") );
+$boss->projectFails();
+$boss->projectFails();
+$boss->projectFails();
+```
+
+虽然这个版本的 NastyBoss 类能与 Employee 类型一起工作，而且也能从多态中获益，但我们仍旧没有定义创建对象的策略。实例化对象是一件麻烦事，但是我们又不得不去做。
+
+如果说这里存在一个原则的话，那便是 “把对象实例化的工作委托出来”。之前的示例已然隐含了这个原则，即要求将一个 Employee 对象传递给 NastyBoss::addEmployee() 方法。然而我们可以委托一个独立的类或方法类生产 Employee 对象，其效果是一样的。下面给 Employee 类添加了一个实现了对象创建策略的静态方法。
+
+```php
+
+abstract class Employee
+{
+    protected $name;
+    private static $types = array('minion', 'clueup', 'wellconnected');
+
+	//随机生成不同类型的对象
+    static function recruit( $name )
+    {
+        $num = rand( 1, count( self::$types ) ) -1;
+        $class = self::$types[$num];
+        return new $class( $name );
+    }
+    function __construct($name)
+    {
+        $this->name = $name;
+    }
+    abstract function fire();
+}
+
+```
+
+正如你所看到的，这里通过一个姓名字符串来随机实例化具体的 Employee 子类。现在我们可以将实例化的细节委托给 Employee 类的 recruit方法
+
+```php
+$boss = new NastyBoss();
+$boss->addEmployee( Employee::recruit("harry") );
+$boss->addEmployee( Employee::recruit("bob") );
+$boss->addEmployee( Employee::recruit("mary") );
+```
+
+我们之前曾在 ShopProduct 类中放置了一个静态方法 getInstance() 。getInstance() 负责以数据库查询为基础生成正确的 ShopProduct 子类。因此 ShopProduct 类具有双重角色。它定义了 ShopProduct 类型，同时它也作为实体 ShopProduct 对象的工厂
+
+`注解：本章中常常提到的 “工厂” 这个术语。工厂就是负责生成对象的类或方法。`
+
+```php
+//ShopProduct 类
+public static function getInstance( $id, PDO $dbh)
+    {
+        $query = "select * from products where id = ?";
+        $stmt = $dbh->prepare( $query );
+        if ( ! $stmt->execute( array( $id)) ) {
+            $error = $dbh->errorInfo();
+            exit("failed：".$error[1]);
+        }
+        $row = $stmt->fetch();
+        if (empty( $row ) ) {
+            return null;
+        }
+        if ( $row['type'] == "book" ) {
+            //实例化一个 BookProduct 对象
+        } else if ( $row['type'] == "cd" ) {
+            //实例化一个 CdProduct 对象
+            $product = new CdProduct();
+        } else {
+            //实例化一个 ShopProduct 对象
+        }
+    }
+```
+
+getInstance() 方法使用一系列 if/else 语句来决定实例化哪个子类。像这样的条件语句在工厂代码中十分常见。尽管我们尝试从项目中消除大量的条件语句，但生成对象确实需要使用这些条件条件语句。一般来说这不是一个严重问题，因为我们将代码中并行的条件语句转移到 getInstance() 来，有getInstance() 来决定对象生成。
+
+
+
+
+## 6.2 单例模式
+
+全局变量是面向对象程序员遇到的引发 bug 的主要原因之一。这是因为全局变量将类捆绑于特定的环境，破坏了封装。如果新的应用程序无法保证一开始就定义了相同的全局变量，那么一个依赖于全局变量的类就无法从一个应用程序中提取出来并应用到新应用程序中。
+
+尽管这并不是我们想要的，但全局变量不受保护的本质的确是个很大的问题。一旦开始依赖全局变量，那么某个类库中声明的全局变量和其他地方声明的全局变量迟早会发生冲突。我们已经看到过 PHP易受到类名冲突的影响，但全局变量的冲突更加糟糕，PHP并不会对全局变量冲突发出任何警告。你也许只是发现代码行为有些古怪。更糟糕的是，在开发环境中你也许根本发现不了任何问题。因此如果在类库中使用全局变量，用户可能在尝试将你的类库与其他类库一同部署时遇到冲突。
+
+然而全局变量仍是一个诱惑。因为有时我们为了使所有类都能访问某个对象，会不惜忍受全局访问的缺陷。
+
+我提到过，命名空间在一定程度上避免了命名冲突。你至少可以将变量的作用域定义在包中，这意味着第三方的库与你的系统产生冲突的可能性大大降低了。即便如此，命名空间内部还是存在命名冲突。
+
+### 6.2.1 问题
+
+经过良好设计的系统一般通过方法调用来传递对象实例。每个类都会与背景环境保持独立，并通过清晰的通信方式来与系统中其他部分进行协作。有时你需要使用一些作为对象间沟通渠道的类，此时就不得不引入依赖关系。
+
+假设有一个用于保护应程序信息的 Preferences 类。我们可能会使用一个 Preferences 对象来保存诸如 DSN 字符串， URL根目录、文件路径等数据。这些信息在你每次部署程序时都可能会有所不同。该对象也可被用作一个公告板，它是可以被系统中其他无关对象设置和获取的消息的中心。
+
+但在对象中传递 Preferences 对象并不总是个好主意。你可以让原来并不使用 Preferences 对象的类强制性地接受 Preferences 对象，以便这些类能传递 Preferences 对象给其他对象。但这样做产生了另一种形式的耦合。
+
+我们还需要保证系统中的所有对象都是用同一个 Preferences 对象。我们不希望一些对象在一个 Preferences 对象上设直接，而其他对象从另外一个完全不同的 Preferences 对象上读取数据。
+
+让我们提炼出这个问题的几个关键点：
+Preferences 对象应该可以被系统中的任何对象使用。
+Preferences 对象不应该被存储在会被覆写的全局变量中。
+系统中不应超过一个 Preferences 对象。也就是说，Y对象可设置 Preferences 对象的一个属性，而 Z 对象不需要通过其他对象就可以直接获取该属性的值
+
+### 6.2.2 实现
+
+为了解决这个问题，我们可以从强制控制对象的实例化开始。下面创建了一个无法从其自身外部来创建实例的类。听起来似乎有些难，其实只要简单的定义一个私有的构造方法即可：
+```php
+class Preferences
+{
+    private $props = array();
+    private function __construct() {}
+    public function setProperty($key, $val)
+    {
+        $this->props[$key] = $val;
+    }
+    public function getProperty( $key )
+    {
+        return $this->props[$key];
+    }
+}
+```
+当然，目前 Preferences类是完全不能用的。我们设置了一个不合常理的访问机制。由于构造方法被声明为 private，客户端代码无法实例化对象。因此 setProperty() 和 getProperty() 方法目前也是多余的。
+不过我们可以使用静态方法和静态属性来间接实例化对象
+```php
+class Preferences
+{
+    private $props = array();
+    private static $instance;
+
+    private function __construct() {}
+
+    public function getInstance() {
+        if ( empty( self::$instance ) ) {
+            self::$instance = new Preferences();
+        }
+        return self::$instance;
+    }
+
+    public function setProperty($key, $val)
+    {
+        $this->props[$key] = $val;
+    }
+    public function getProperty( $key )
+    {
+        return $this->props[$key];
+    }
+}
+```
+
+$instance 属性设置为 private 及 static，因此不能在类外部被访问。而 getInstance() 方法在类内部，因此可以访问 $instance 属性。因为 getInstance()方法是 public 且 static 的，所以在脚本的任何地方都可被调用。
+
+```php
+$pref = Preferences::getInstance();
+$pref->setProperty("name", "matt");
+unset($pref); //移除引用
+$pref2 = Preferences::getInstance();
+print $pref2->getProperty( "name" ); //改属性值并没有丢失
+```
+静态方法不能访问普通对象属性，因为根据静态的定义，它只能被类而不是对象调用。但静态方法可以访问一个静态属性。所以当 getInstance() 被调用时，我们会检查 Preferences::$instance 属性。如果为空，那么创建一个 Preferences 对象实例并把它保存在 $instance 属性中，然后我们把实例返回给调用代码。因为静态方法 getInstance() 是 Preferences类的一部分，所以尽管构造方法是私有的，但是实例化 Preferences 对象完全没有问题。
+
+所以，`单例模式`的核心就是，为了保证一个类只有一个实例，所以外部不能对他进行实例化，只能私有化构造方法然后通过自定义内部方法生成一个实例，并保存为类的一个静态属性，这样就保证了一个类在全局中只有一个实例。
+
+### 6.2.3 结果
+
+使用单例对象与使用全局变量相比，又如何呢？首先坏的一面。单例和全局变量可能被误用。因为单例在系统任何地方都可以被访问，所以它们可能会导致很难调试的依赖关系。如果改变一个单例，那么所有使用该单例的类可能都会受到影响。在这里，依赖本身并不是问题。毕竟，我们在每次声明一个有特定类型参数的方法时，也就创建了依赖关系。问题是，单例对象的全局化的性质会使程序员绕过类接口定义的通信路线。当单例被使用时，依赖便会隐藏在方法内部，而并不会出现在方法声明中。这使得系统中的依赖关系更加难以追踪，因此需要谨慎小心地部署单例类。
+适度地使用单例模式可以改进系统的设计。在系统中传递哪些不必要的对象令人厌烦，而单例可以让你从中解放出来。
+在面向对象的开发环境中，单例模式是一种对于全局变量的改进。你无法用错误类型的数据覆写一个单例。这种保护在不支持命名空间的PHP版本里尤其重要。因为PHP中命名冲突会在编译时被捕获，并使脚本停止运行。
+
+## 6.3 工厂方法模式
+
