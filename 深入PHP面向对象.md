@@ -62,14 +62,27 @@
 	- [5.4 针对接口编程，而不是针对实现编程](#54-针对接口编程而不是针对实现编程)
 	- [5.5 变化的概念](#55-变化的概念)
 	- [5.6 父子关系](#56-父子关系)
-- [6.生成对象](#6-生成对象)
+- [6. 生成对象](#6-生成对象)
 	- [6.1 生成对象的问题和解决方法](#61-生成对象的问题和解决方法)
 	- [6.2 单例模式](#62-单例模式)
 		- [6.2.1 问题](#621-问题)
 		- [6.2.2 实现](#622-实现)
 		- [6.2.3 结果](#623-结果)
 	- [6.3 工厂方法模式](#63-工厂方法模式)
- 
+		- [6.3.1 问题](#631-问题)
+		- [6.3.2 实现](#632-实现)
+		- [6.3.3 结果](#633-结果)
+	- [6.4 抽象工厂方法模式](#64-抽象工厂方法模式)
+		- [6.4.1 问题](#641-问题)
+		- [6.4.2 实现](#642-实现)
+		- [6.4.3 结果](#643-结果)
+		- [6.4.4 原型模式](#644-原型模式)
+- [7. 让面向对象编程更加灵活的模式](#7-让面向对象编程更加灵活的模式)
+	- [7.1 组合模式](#71-组合模式)
+		- [7.1.1 问题](#711-问题)
+		- [7.1.2 实现](#712-实现)
+		- [7.1.3 效果](#713-效果)
+- 
 
 ## **1. 高级特性**
 
@@ -2374,3 +2387,811 @@ print $pref2->getProperty( "name" ); //改属性值并没有丢失
 
 ## 6.3 工厂方法模式
 
+面向对象设计强调“抽象类高于实现”。也就是说，我们要尽量一般化而不是特殊化。工厂方法模式解决了`当代码关注于抽象类型时如何创建对象实例的问题`。答案便是用特定的类来处理实例化。
+
+### 6.3.1 问题
+
+假设有一个关于个人事务管理的项目，其功能之一是管理 Appointment（预约）对象。我们的业务团队和另一个公司建立了关系，目前需要一个叫做 BloggsCal 的格式来和他们交流预约相关的数据。但是业务团队提醒我们将来可能要面对更多的数据格式。
+
+在接口级别上，我们可以立即定义两个类。其一是需要一个数据编码器来把 Appointment 对象转换成一个专有的格式，将这个编码器命名为 ApptEncoder 类；另外需要一个管理员类来获得编码器，并使用编码器与第三方进行通信，我们将这个管理类名为 CommsManager 类。使用模式术语来描述的话，CommsManager 便是创建者（creator），而 ApptEncoder是产品（product）.
+
+但是如何得到一个具体的 ApptEncoder 对象？
+我们可以要求传递 ApptEncoder 给 CommsManager，但这只是延缓了问题，而我们希望问题可以彻底解决。因此，先在CommsManger 类中直接实例化 BloggsApptEncoder 对象。
+
+```php
+/**
+ * Class ApptEncoder    编码器产品
+ * ${DS}
+ */
+abstract class ApptEncoder
+{
+    //转换编码
+    abstract function encode();
+}
+
+/**
+ * Class BloggsApptEncoder 基于ApptEncoder编码器的bloggs编码实现
+ * ${DS}
+ */
+class BloggsApptEncoder extends ApptEncoder
+{
+    function encode()
+    {
+        // TODO: Implement encode() method.
+        return "Appointment 的数据使用BloggsCal文件格式进行编码";
+    }
+}
+class MegaApptEncoder extends ApptEncoder
+{
+    function encode()
+    {
+        // TODO: Implement encode() method.
+        return "Appointment 的数据使用MegaCal文件格式进行编码";
+    }
+}
+
+/**
+ * Class CommsManger    创建者
+ * ${DS}
+ */
+class CommsManger
+{
+    //获取 编码器的一种实现
+    function getApptEncoder() {
+        return new BloggsApptEncoder();
+    }
+}
+```
+
+CommsManager类负责生成 BloggApptEncoder对象。当团队合作关系发生改变，而我们被要求转换系统来使用一个新的格式 MegaCal时，可以只添加一个条件语句到 CommsManger::getApptEncoder() 方法。毕竟，这是我们以前用过的策略。下面来建立一个新的可以同时处理 BloggsCal 和 MegaCal 格式的 CommsManger 的实现。
+
+```php
+/**
+ * Class CommsManger    创建者
+ * ${DS}
+ */
+class CommsManger
+{
+    const BLOGGS = 1;
+    const MEGA = 2;
+    private $mode = 1;
+    function __construct($mode)
+    {
+        $this->mode = $mode;
+    }
+
+    //获取 编码器的一种实现
+    function getApptEncoder() {
+        switch ( $this->mode ) {
+            case (self::MEGA):
+                return new MegaApptEncoder();
+            default:
+                return new BloggsApptEncoder();
+        }
+    }
+}
+$comms = new CommsManger( CommsManger::MEGA );
+$apptEncoder = $comms->getApptEncoder();
+print $apptEncoder->encode();
+```
+在类中我们使用常量标志定义了脚本可能运行的两个模式：MEGA 和 BLOGGS。在 getApptEncoder() 方法中使用 switch 语句来检查 $mode 属性，并实例化适当的 ApptEncoder
+
+这种方式仍有一点小小的缺陷。通常情况下，创建对象的确需要指定条件，但有时候条件语句会被当做坏的“代码味道”的象征。如果重复的条件语句蔓延在代码中，我们不应该感到乐观。CommsManager 类已经够提供交流日历数据的功能。但是，假设我们所使用的协议要求提供页眉和页脚数据来描述每次预约，情况又将如何呢？下面扩展之前的例子来支持 getHeaderText() 方法
+```php
+/**
+ * Class CommsManger    创建者
+ * ${DS}
+ */
+class CommsManger
+{
+    const BLOGGS = 1;
+    const MEGA = 2;
+    private $mode = 1;
+    function __construct($mode)
+    {
+        $this->mode = $mode;
+    }
+
+    //获取 编码器的一种实现
+    function getApptEncoder() {
+        switch ( $this->mode ) {
+            case (self::MEGA):
+                return new MegaApptEncoder();
+            default:
+                return new BloggsApptEncoder();
+        }
+    }
+
+    function getHeaderText() {
+		//每实现一个方法就要重复进行判断
+        switch ( $this->mode ) {
+            case (self::MEGA):
+                return "Mega header";
+            default:
+                return "Bloggs header";
+        }
+    }
+}
+```
+正如你看到的，支持页眉输出的需求迫使我们重复条件判断语句。如果我们加入新协议，这种做法就变的不适用了。如果还需要加入 getFooterText()方法，工作量就会更大。
+总结一下我们发现的问题：
+- 在代码运行时我们才知道要生存的对象类型（BloggsApptEncoder 或者 MegaApptEncoder）
+- 我们需要能够轻松地加入一些新的产品类型（如一种新业务处理方式 SyncML）
+- 每一个产品类型都可定制特定的功能（如 getHeaderText() 和 getFooterText()）
+另外，请注意我们正在使用条件语句，并且之前已经介绍过这些条件语句可以被多态代替，而工厂方法模式恰好能让我们使用继承和多态来封装具体产品的创建。换句话说，我们要为每种协议创建 CommsManager 的一个子类，而每一个子类都要实现 getApptEncoder() 方法。
+
+### 6.3.2 实现
+
+工厂方法模式把创建者类与要生产的产品类分离开来。创建者是一个工厂类，其中定义了用于生成产品对象的类方法。如果没有提供默认实现，那么就由创建者类的子类来执行实例化。一般情况下，就是创建者类的每个子类实例化一个相应的产品子类。
+
+把 CommsManager 重新定义为抽象类。这样我们可以得到一个灵活的父类，并把所有特定协议相关的代码放到具体的子类中。下面是简化过的代码：
+```php
+/**
+ * Class CommsManger    创建者
+ * ${DS}
+ */
+abstract class CommsManger
+{
+    //获取 编码器的一种实现
+    abstract function getApptEncoder();
+    abstract function getHeaderText();
+    abstract function getFooterText();
+}
+class BloggsCommsManager extends CommsManger
+{
+    function getHeaderText()
+    {
+        // TODO: Implement getHeaderText() method.
+        return "BloggsCal header";
+    }
+    function getApptEncoder()
+    {
+        // TODO: Implement getApptEncoder() method.
+        return new BloggsApptEncoder();
+    }
+    function getFooterText()
+    {
+        // TODO: Implement getFooterText() method.
+        return "BloggsCal footer";
+    }
+}
+```
+BloggsCommsManger::getApptEncoder() 方法返回一个BloggsApptEncoder对象。调用 getApptEncoder() 的客户端代码可以预期得到一个 ApptEncoder 类型的对象，并且不需要知道被给予的是什么具体产品。在一些编程语言中，方法的返回类型是强制规定的，因此调用诸如 getApptEncoder() 之类方法的客户端代码可以完全确定它将接收到的是 ApptEncoder 对象。而在PHP中，这只能靠人为约定。因此，在代码中注明返回类型或者通过命名约定类传达返回类型的信息相当重要。
+现在当我们被要求实现 MegaCal 时，只需要给CommsManager 抽象类写一个新实现。
+```php
+class MegaCommsManager extends CommsManger
+{
+    function getHeaderText()
+    {
+        // TODO: Implement getHeaderText() method.
+        return "Mega header";
+    }
+    function getApptEncoder()
+    {
+        // TODO: Implement getApptEncoder() method.
+        return new BloggsApptEncoder();
+    }
+    function getFooterText()
+    {
+        // TODO: Implement getFooterText() method.
+        return "Mega footer";
+    }
+}
+```
+
+### 6.3.3 结果
+
+请注意我们的创建者类与产品的层次结构是非常相似的。这是使用工厂方法模式的常见结果，这形成了一种特殊的代码重复，因而被一些人所不喜欢。另一个问题是该模式可能会导致不必要的子类化。如果你为创建者类创建子类的原因只是为了实现工厂方法模式，那么最好再考虑一下（这就是为什么在例子中引进页眉和页脚的方法）
+
+在示例中我们只关注“预约”功能。如果想扩展一下功能，使其能够处理“待办事宜”及联系人，那么将会遇到新问题。我们需要一个可以同时处理一组相关实现的架构。正如我们在下一节中将看到的，工厂方法模式经常和抽象工厂模式一起使用。
+
+## 6.4 抽象工厂模式
+
+在大型应用中，我们可能需要工厂来产生一组相关联的类。抽象工厂模式可解决这个问题。
+
+### 6.4.1 问题
+
+再来看一下之前实现的个人事务管理的示例。我们以 BloggsCal 和 MegaCal 这两种格式管理编码。我们可以通过加入更多编码格式来使此结构“横向”增长，但如何通过给不同的类型的PIM对象加入编码器使它“纵向”增长呢？事实上，我们一直在应用该模式。
+下边是重新改造后的代码：
+```php
+//预约
+abstract class ApptEncoder{
+    //转换编码
+    abstract function encode();
+}
+class BloggsApptEncoder extends ApptEncoder {
+    function encode() {
+    }
+}
+class MegaApptEncoder extends ApptEncoder {
+    function encode() {
+    }
+}
+
+//代办事宜
+abstract class TtdEncoder {
+    //处理代办事宜
+    abstract function encode();
+}
+class BloggsTtdEncoder extends TtdEncoder {
+    function encode() {
+    }
+}
+class MegaTtdEncoder extends TtdEncoder {
+    function encode() {
+    }
+}
+
+//联系人
+abstract class ContactEncoder {
+    abstract function encode();
+}
+class BloggsContactEncoder extends ContactEncoder {
+    function encode() {
+    }
+}
+class BegaContactEncoder extends ContactEncoder {
+    function encode() {
+    }
+}
+```
+Bloggs的类与其他格式（如MegaCal）互相没有关联（尽管它们实现了一个公共的结构），但它们的功能相似。所以如果系统目前正在使用 BloggsTtdEncoder，那么它应该也能使用 BloggsContactEncoder。
+那么我们如何使用抽象类工厂模式进行优化？
+
+### 6.4.2 实现
+
+CommsManager 抽象类定义用于生成3个产品（ApptEncoder、TtdEncoder、ContactEncoder）的接口。我们需要先实现一个具体的创建者，然后才能创建一个特定类型的具体产品。
+下面是 CommsManager 和 BloggsCommsManager 的代码：
+```php
+abstract class CommsManger {
+    abstract function getApptEncoder(); //Appt
+    abstract function getTtdEncoder();  //Ttd
+    abstract function getContactEncoder(); //Contact
+    abstract function getHeaderText();
+    abstract function getFooterText();
+}
+class BloggsCommsManager extends CommsManger
+{
+    function getApptEncoder() {
+    }
+    function getTtdEncoder() {
+    }
+    function getContactEncoder() {
+    }
+    function getHeaderText() {
+    }
+    function getFooterText() {
+    }
+}
+```
+在这个例子中使用了工厂方法模式。getContact() 是 CommsManager 的抽象方法，并在 BloggsCommsManager 中被实现。设计模式间经常会这样协议：一个模式创建可以把它自己引入到另一个模式的上下文环境。下边是我们加入了对MegaCal格式的支持。
+```php
+abstract class CommsManger {
+    abstract function getApptEncoder(); //Appt
+    abstract function getTtdEncoder();  //Ttd
+    abstract function getContactEncoder(); //Contact
+    abstract function getHeaderText();
+    abstract function getFooterText();
+}
+class BloggsCommsManager extends CommsManger
+{
+    function getApptEncoder() {
+    }
+    function getTtdEncoder() {
+    }
+    function getContactEncoder() {
+    }
+    function getHeaderText() {
+    }
+    function getFooterText() {
+    }
+}
+class MegaCommsManager extends CommsManger
+{
+    function getApptEncoder() {
+    }
+    function getTtdEncoder() {
+    }
+    function getContactEncoder() {
+    }
+    function getHeaderText() {
+    }
+    function getFooterText() {
+    }
+}
+```
+
+### 6.4.3 结果
+
+那这个模式带来了什么？
+- 首先，将系统与实现的细节分离开来。我们可以在示例中添加或移除任意数目的编码格式而不会影响系统
+- 对系统中功能相关的元素强制进行组合。因此，通过使用 BloggsCommsManager，可以确保只使用与 BloggsCal相关的类。
+- 添加新产品将会令人苦恼。因为不仅要创建新产品的具体实现，而且为了支持它，我们必须修改抽象创建者和它的每一个具体实现
+
+抽象工厂模式的许多实现都会使用工厂方法模式，这可能因为大多数范例都是用Java或者C++写的。但是PHP并不会强制规定方法的返回类型，这给了我们一些可能利用的灵活性。
+
+我们可以创建一个使用标志参数来决定返回什么对象的单一的 make() 方法，而不用给每个工厂方法创建独立的方法。
+```php
+abstract class CommsManager {
+    const APPT    = 1;
+    const TTD     = 2;
+    const CONTACT = 3;
+    abstract function make( $flag_int );
+    abstract function getHeaderText();
+    abstract function getFooterText();
+}
+class BloggsCommsManager extends CommsManager {
+    function make($flag_int) {
+        switch ( $flag_int ) {
+            case self::APPT:
+                return new BloggsApptEncoder();
+            case self::CONTACT:
+                return new BloggsContactEncoder();
+            case self::TTD:
+                return new BloggsTtdEncoder();
+        }
+    }
+    function getHeaderText() {
+    }
+    function getFooterText() {
+    }
+}
+```
+可以看出，类的接口变得更加紧凑。但是这样做也有一定代价。在使用工厂方法时，我们定义了一个清晰的接口并强制所有具体的工厂对象遵循它。而使用单一的 make() 方法，我们必须在所有的具体创建者中支持所有的产品对象。同时，我们也引入了平行条件，因为每个具体创建者都必须实现相同的标志监测（flag test）。客户类无法确定具体的创建者是否可以产生所有产品，因为 make() 方法的内部需要对每种情况都进行考虑并做出选择。
+
+另一方面，我们可以创建更灵活的创建者。创建者基类可以提供 make() 方法来保证每个家族有一个默认实现。具体子类可以选择性地改变这一行为。子类可以实现自己的 make() 方法并调用，由此决定生成何种对象。这些创建者子类可以自行决定是否在执行自己的 make() 方法后调用父类的 make() 方法。
+
+### 6.4.4 原型模式
+
+平行继承层次的出现是工厂方法模式带来的一个问题。这是一种让一些程序员不舒服的耦合。每次添加产品家族时，你就被迫去创建一个相关的具体创建者（比如编码器 BloggsCal和BloggsCommsManager匹配）。在一个快速增长的系统里会包含越来越多的产品，而维护这种关系便会很快令人厌烦。
+一种避免这种依赖的办法是使用PHP的 clone 关键词复制已存在的具体产品。然后，具体产品类本身便成为它们自己生成的基础。这便是`原型模式`。使用该模式我们可以用组合代替继承。这样的转变则促进了代码运行时的灵活性，并减少了必须创建的类。
+
+#### **问题**
+
+假设有一款“文明”风格的网络游戏，可在区块组成的格子中操作战斗单元。每个区块分别代表海洋、平原、森林。地形的类别约束了占有区块的单元的移动和格斗能力。我们可以有一个 TerrainFactoy 对象来提供 Sea、Forest、Plains 对象，我们决定允许用户在完全不同的环境里选择，于是 Sea 可能是 MarSea 和 EarthSea 的抽象父类。Froest（森林）和 Plains（平原）对象也会有相似的实现。这里的分支便构成了抽象工厂模式。我们有截然不同的产品体系（Sea、Plains、Forest），而这些产品家族间有超越继承的紧密联系，如 Earth（地球） 和 Mars（火星），它们都同时存在海洋、森林和平原地形。
+下边的案例说明了如何对这些产品应用抽象工厂和工厂方法模式：
+```php
+//区块生成工厂
+abstract class TerrainFactory {
+    abstract function getSea();
+    abstract function getPliains();
+    abstract function getForest();
+}
+//地球上的工厂
+class EarthTerrinFactory extends TerrainFactory {
+    function getSea() {
+    }
+    function getPliains() {
+    }
+    function getForest() {
+    }
+}
+//火星上的工厂
+class MarsTerrainFactory extends TerrainFactory {
+    function getSea() {
+    }
+    function getPliains() {
+    }
+    function getForest() {
+    }
+}
+//大海
+class Sea {
+}
+//火星上的海
+class Marsea extends Sea {
+}
+//地球上的海
+class EarthSea extends Sea {
+}
+//平原
+class Plains {
+}
+//火星上的平原
+class MarsPlains extends Plains {
+}
+//地球上的平原
+class EarthPlains extends Plains {
+}
+//森林
+class Forest {
+}
+//火星上的森林
+class MarsForest extends Forest {
+}
+//地球上的森林
+class EarthForest extends Forest {
+}
+```
+你可以看到，我们依赖继承来组合工厂生成的地形家族产品。这的确是一个可行的解决方案，但这需要有一个大型的继承体系，并且相对来说不那么灵活。当你不想要平行的继承体系而需要最大化运行时的灵活性时，你可以使用抽象工厂模式的强大变形--`原型模式`
+
+#### **实现**
+
+当使用抽象工厂模式或工厂方法模式时，必须决定使用哪个具体的创建者，这很可能是通过检查配置值来决定的。既然必须这样做，那为什么不简单地创建一个保存具体产品的工厂类，并在初始化时就加入这种做法呢？这样除了可以减少类的数量，还有其他好处。下面是在工厂中使用原型模式的简单代码：
+
+`原型模式案例`
+```php
+class Sea {} //大海
+class Marsea extends Sea {} //火星上的海
+class EarthSea extends Sea {}   //地球上的海
+
+class Plains {} //平原
+class MarsPlains extends Plains {}  //火星上的平原
+class EarthPlains extends Plains {} //地球上的平原
+
+class Forest {} //森林
+class MarsForest extends Forest {}  //火星上的森林
+class EarthForest extends Forest {} //地球上的森林
+
+//区块生成工厂
+class TerrainFactory {
+    private $sea;
+    private $forest;
+    private $plains;
+    function __construct(Sea $sea, Plains $plains, Forest $forest) {
+        $this->sea = $sea;
+        $this->plains = $plains;
+        $this->forest = $forest;
+    }
+    function getSea() {
+        return clone $this->sea;
+    }
+    function getPliains() {
+        return clone $this->sea;
+    }
+    function getForest() {
+        return clone $this->forest;
+    }
+}
+$factory = new TerrainFactory(new EarthSea(), new Plains(), new EarthForest());
+print_r( $factory->getSea() );
+print_r( $factory->getPliains() );
+print_r( $factory->getForest() );
+```
+可以看到，我们加载了一个带有产品对象实例的具体的 TerrainFactory 对象。当客户端代码调用 getSea() 时，返回在初始化时缓存的 Sea 对象的一个副本。我们不仅仅省掉了一些类，而且有了额外的灵活性。想要在一个有类似地球海洋和森林并有类似火星平原的星球上玩游戏吗？你没必要写一个新的创建者类--只需要简单改变添加到 TerrainFactory 的参数即可
+```php
+$factory = new TerrainFactory( new EarthSea(), new MarsPlains(), new EarthForest() );
+```
+因此原型模式使我们可利用组合所提供的灵活性，不过我们得到的可不止这个。因为在运行时保持和克隆对象，所以当生成新产品时，可以重新设定对象状态。设想 Sea 对象有 $navigability 属性（可导航性），该属性影响船在海洋区块的移动能量值，并可以被设置来调整游戏的难度登记。
+```php
+class Sea {
+	private $navibability = 0;
+	function __construct( $navibability ) {
+		$this->navibability = $navibability;
+	}
+}
+```
+现在当我们初始化 TerrainFactory 对象时，可以加入一个具有导航修改仪的 Sea 对象，而这对 TerrainFactory 处理的所有 Sea 对象都有效。
+```php
+$factory = new TerrainFactory( new EarthSea(-1), new MarsPlains(), new EarthForest() );
+```
+如果你想生成的对象是由其他对象组合而成的，以上代码显然颇具灵活性。假设所有的 Sea 对象都能包含 Resource 对象。通过配置的值，可以给所有的 Sea 对象都默认提供一个 FishResouce 对象。要记住的是如果产品对象引用了其他对象，那么你应该实现 __clone() 方法来保证你得到的是深复制。
+```php
+class Contained {}
+class Container {
+    public $contained;
+    function __construct() {
+        $this->contained = new Contained();
+    }
+    function __clone() {
+        //确保被克隆的对象持有的是 self::$contained 的克隆而不是引用
+        $this->contained = clone $this->contained;
+    }
+}
+```
+
+## **7. 让面向对象编程更加灵活的模式**
+
+## 7.1 组合模式
+
+组合模式也许是将继承用于组合对象的最极端的例子。组合模式的设计思想简单而又非常优雅，并且非常使用。但要注意的是，因为这个模式很好用，你也许会经不起诱惑而过度使用它。
+组合模式可以很好地聚合和管理许多相似的对象，因而对客户端代码来说，一个独立对象和一个对象集合是没有差别的。虽然该模式实际上非常简单，但还是经常令人感到迷惑。其中一个原因就是模式中类的结构和对象的组织结构非常相似。组合模式中继承的层级结构是树形结构，由根部的基类开始，分支到各个不同的子类，在其继承树中可以轻松地生成枝叶，也可以很容易地遍历整个对象树中的对象。
+如果你还对这个模式不熟悉，那就举例说明，单个物体有时可以被当成一个集合来看待。例如，用谷类和肉类可以制作一种食物--香肠。然后我们将香肠当作单个物体来处理。就像我们可以食用、烹调、购买或出售肉类一样，我们也可以食用、烹调、购买或出售由肉类组成的香肠。我们也许会用香肠和其他组合成分类制作馅饼，从而将一个组合物合成一个更大的组合物。在这个例子中，我们处理组件的方式和处理集合的方式是一样的。组合模式有助于我们为集合和组件之间的关系建立模型。
+
+### 7.1.1 问题
+
+管理一组对象是很复杂的，当对象中可能还包含着它们自己的对象时尤其如此。这类问题在开发中非常常见。比如发票中会包含描述产品或服务的条目，或者待办事宜列表会包含多个子任务。在CMS中，我们无法离开页面、文章、多媒体组件等。从外部来管理这些结构相当困难。
+
+用之前的虚拟场景，我们以一个叫做“文明”的游戏为基础设计一个系统。玩家可以在一个由大量区块所组成的地图上移动战斗单元。独立的单元可被组合起来一起移动、战斗、防守。我们先定义一些战斗单元的类型。
+```php
+abstract class Unit {
+    abstract function bombardStrength();
+}
+class Archer extends Unit {
+    function bombardStrength() {
+        return 4;
+    }
+}
+class LaserCannonUnit extends Unit {
+    function bombardStrength() {
+        return 44;
+    }
+}
+```
+Unit 类定义了一个抽象方法 bombardStrength，用于设置战斗单元对邻近区块的攻击强度，然后我们在 Archer(射手)和 LaserCannonUnit（激光炮）这两个类中都实现了 bombardStrength 方法。当然，这3个类也应该包含移动能力和防御能力等内容，但为了简单起见。我们暂时先省略这些功能。现在我们可以这样定义一个独立的类来组合战斗单元：
+```php
+class Army {
+    private $units = array();
+    function addUnit( Unit $unit) {
+        array_push( $this->units, $unit );
+    }
+    function bombardStrength() {
+        $ret = 0;
+        foreach ( $this->units as $unit ) {
+            $ret += $unit->bombardStrength();
+        }
+        return $ret;
+    }
+}
+```
+Army(军队)类有一个 addUint() 方法，用于接收 Uint对象。Uint对象被保存在数组属性 $units 中。同时我们在 Army 的 bombardStrength 方法中通过一个简单的迭代遍历所聚合的 Uint 对象并调用 bombardStrength 方法，计算出总的攻击强度。
+
+如果问题一直这么简单，那么这样的模型还是非常令人满意的。但是当我们加入一些新的需求，会发生什么呢？比如军队应该可以与其他军队进行合并。同时，每个军队都会有它自己的ID，这样军队以后还能从整编中解散出来。比如今天大公爵（ArchDuke）和Soames将军的勇士们可能一起并肩作战，但是当国内发生叛乱时，公爵可能会在任何时候将它的军队调回。因此我们不能仅支持将军队与军队合并，还能够在必要的时候再把原来的军队抽离出来。
+
+我们可以修改 Army 类，使之可以像添加 Unit 对象一样添加 Army 对象：
+```php
+class Army {
+    private $units = array();
+    private $armies = array();
+    function addUnit( Unit $unit) {
+        array_push( $this->units, $unit );
+    }
+    function addArmy( Army $army) {
+        array_push( $this->armies, $army );
+    }
+    function bombardStrength() {
+        $ret = 0;
+        foreach ( $this->units as $unit ) {
+            $ret += $unit->bombardStrength();
+        }
+        foreach ( $this->armies as $army ) {
+            $ret += $army->bombardStrength();
+        }
+        return $ret;
+    }
+}
+```
+此时，这个新的需求还不算太复杂。但是记住，我们还需要对 defensiveStrength(） 等方法做相似的修改。慢慢地，我们的游戏会变得越来越完善。现在客户提出了新的续期：运兵船可以支持最多10个战斗单元以改进他们在某些地形上的活动范围。显然，运兵船与用于组合战斗单元的 Army 对象相似，但它也有一些自己的特性。虽然我们能够通过改进 Army 类来处理 TroopCarrier 对象，但是我们知道以后可能会有更多对部队进行组合的需求。显然，我们需要一个更灵活的模型。
+
+### 7.1.2 实现
+
+组合模式定义了一个单根继承体系，使具有截然不同职责的集合可以并肩工作。在之前的例子中我们已看到以上两点。组合模式中的类必须支持一个共同的操作集，以将其作为它们的首要职责。对我们来说，bombardStrength() 方法便支持这样的操作。类同时必须拥有添加和删除子对象的方法。
+
+重写 Uint 类
+```php
+abstract class Unit {
+    abstract function addUnit( Unit $unit );
+    abstract function removeUnit( Unit $unit);
+    abstract function bombardStrength();
+}
+```
+可以看到，我们为所有的 Unit对象设计了基本功能。现在看看一个组合对象是如何实现这些抽象方法的：
+```php
+class Army extends Unit {
+    private $units = array();
+    function addUnit( Unit $unit) {
+        //第三个参数用来做 全值匹配 ===
+        if ( in_array( $unit, $this->units, true)) {
+            return;
+        }
+        $this->units[] = $unit;
+    }
+    function removeUnit(Unit $unit) {
+        $this->units = array_udiff( $this->units, array( $unit ), function( $a, $b ) { return ($a === $b) ? 0 : 1; });
+    }
+    function bombardStrength() {
+        $ret = 0;
+        foreach ( $this->units as $unit ) {
+            $ret += $unit->bombardStrength();
+        }
+        return $ret;
+    }
+}
+```
+在我们将 Unit 对象加入 $units 数组属性前， addUnit() 方法会先检查是否已经添加过同一个 Unit 对象，而 removeUnit() 也会使用类似的检查在属性中移除指定的 Unit 对象。
+
+然后 Army 对象可保存任何类型的 Unit 对象，包括 Army 对象本身或者 Archer和 LaserCannonUnit 这样的局部对象。因为所有的部队单位都保证支持 bombardStrength() 方法，所以我们的 Army::bombardStrength() 方法只需遍历 $units 属性，调用每个 Unit 对象的 bombardStrength() 方法，就可以计算出整支军队总的攻击强度。
+
+组合模式的一个问题是如何实现 add 和 remove 方法。一般的组合模式会在抽象超类中添加 add 和 remove 方法。这可以确保模式中的所有的类都共享同一个接口，但这同时也意味着局部类必须实现这些方法：
+```php
+class UnitException extends Exception {}
+class Archer extends Unit {
+    function addUnit(Unit $unit) {
+        throw new UnitException( get_class( $this ) . ' is a leaf');
+    }
+    function removeUnit(Unit $unit) {
+        throw new UnitException( get_class( $this ) . ' is a leaf');
+    }
+    function bombardStrength() {
+        return 4;
+    }
+}
+```
+实际上，我们并不希望在 Archer 对象中添加 Unit 对象，所以在 addUnit 或 removeUnit 方法被调用时会抛出异常。这要求修改所有局部类的 add/remove 方法，因为我们可以修改之前设计的代码，在 Unit 类的 addUnit()/removeUnit() 方法中抛出异常。
+```php
+abstract class Unit {
+    function addUnit( Unit $unit ) {
+        throw new UnitException( get_class( $this ) . ' is a leaf');
+    }
+    function removeUnit( Unit $unit) {
+        throw new UnitException( get_class( $this ) . ' is a leaf');
+    }
+    abstract function bombardStrength();
+}
+class Archer extends Unit {
+    function bombardStrength() {
+        return 4;
+    }
+}
+```
+这样做可以去除局部类中的重复代码，但是同时组合类不再需要强制性地实现 addUnit() 和 removeUnit() 方法了，这可能会带来问题。
+
+回顾一下组合模式所带来的益处：
+- 灵活：因为组合模式中的一切类都共享了同一个父类型，所以可以轻松地在设计中添加新的组合对象或者局部对象，而无需大范围地修改代码。
+- 简单：使用组合结构的客户端代码只需要设计简单的接口。客户端代码没有必要区分一个对象是组合对象还是局部对象。客户端代码调用 Army::bombardStrength() 方法时也许会产生一些幕后的委托调用，但是对于客户端代码而言，无论是过程还是效果，都和调用 Archer::bombardStrength() 方法是完全相同的。
+- 隐式到达：组合模式中的对象通过树型结构组织。每个组合对象中都保存着对子对象的引用。因此对树中某部分的一个小操作可能会产生很大的影响。比如，我们可能会将一个父 Army 对象的某个子 Army 对象删除，并将其添加到另外一个父 Army 对象上去。这个简单的动作看似只对子 Army 对象产生作用，但实际却影响了子 Army 对象中所引用的 Unit 对象及其子对象的状态。
+- 显示到达：树型结构可轻松遍历。可以通过迭代树型结构来获取组合对象和局部对象的信息，或对组合对象和局部对象执行批量处理。在下一章中，我们在处理访问者模式时会看到一个与此相关的强大技术。
+
+通过代码体会组合模式的好处：
+```php
+//创建一个 Army 对象
+$main_army = new Army();
+
+//添加一些 Unit对象
+$main_army->addUnit( new Archer() );
+$main_army->addUnit( new LaserCannonUnit() );
+
+//创建一个新的 Army 对象
+$sub_army = new Army();
+
+//添加一些 Unit 对象
+$sub_army->addUnit( new Archer() );
+$sub_army->addUnit( new Archer() );
+$sub_army->addUnit( new Archer() );
+
+//把第二个 Army 对象添加到第一个 Army 对象中去
+$main_army->addUnit( $sub_army );
+
+//所有攻击强度计算都在幕后进行
+print "attackin with strength : {$main_army->bombardStrength()}";
+```
+我们创建了一个新的 Army 对象，并为它添加了一些简单的 Unit对象，然后我们创建了另一个 Army 对象，并将其添加到第一个 Army 对象中。当我们调用第一个 Army 对象的 Unit::bombardStrength() 方法时，就可以在幕后计算各个局部对象的攻击强度并得出总的攻击强度。组合结构的所有复杂性都被完全隐藏了。
+
+### 7.1.3 效果
+
+为什么我们要把 addUnit 和 removeUnit 这样的冗余方法加到并不需要它们的局部类中？答案在于 Unit 类型的透明性。
+客户端代码在得到一个 Unit 对象时，知道其中一定包含 addUnit 方法。组合模式的原则便是局部类和组合类具有同样的接口。不过这未必能真正帮助我们，因为我们仍然不知道调用 Unit 对象的 addUnit 方法是否安全。
+如果我们将 add/remove 方法降到下一级对象中，以便这些方法仅在组合类中使用，那么又会产生另一个问题--使用 Unit 对象时，我们并不知道该对象是否默认支持 addUnit() 方法。但是，将冗余的类方法留在局部类中让人感到不舒服。这样做毫无意义而且给系统设计带来歧义，因为接口应该关注于自己独有的功能。
+我们可以十分轻松地将组合类分解为 CompositeUnit 子类型。首先删除 Unit的 add/remove 动作：
+```php
+abstract class Unit {
+    function getComposite() {
+        return null;
+    }
+    abstract function bombardStrength();
+}
+```
+注意一下新增的 getComposite() 方法，不过我们稍候再来看这个方法。现在我们需要一个新的拥有 addUnit() 和 removeUnit() 方法的抽象类。我们甚至可以给这两个方法加上默认实现：
+```php
+abstract class CompositeUnit extends Unit {
+    private $units = array();
+    function getComposite()
+    {
+        return $this;
+    }
+    protected function units() {
+        return $this->units;
+    }
+    function addUnit( Unit $unit) {
+        //第三个参数用来做 全值匹配 ===
+        if ( in_array( $unit, $this->units, true)) {
+            return;
+        }
+        $this->units[] = $unit;
+    }
+    function removeUnit(Unit $unit) {
+        $this->units = array_udiff( $this->units, array( $unit ), function( $a, $b ) { return ($a === $b) ? 0 : 1; });
+    }
+}
+```
+因为 CompositeUnit 类继承自 Unit 类，并没有实现抽象的 bombardStrength() 方法，所以 CompositeUnit 类也被声明为抽象的，虽然它本身并没有抽象方法。 Army 类现在可以扩展 CompositeUnit 了。
+虽然我们删除了局部类中冗余、烦人的 add/remove 方法，但客户端代码在使用 addUnit() 方法前却仍必须检查对象是否为一个 CompositeUnit 类型 的对象。
+
+```php
+abstract class Unit {
+    function getComposite() {
+        return null;
+    }
+    abstract function bombardStrength();
+}
+class Archer extends Unit {
+    function bombardStrength() {
+        return 4;
+    }
+}
+class LaserCannonUnit extends Unit {
+    function bombardStrength() {
+        return 44;
+    }
+}
+abstract class CompositeUnit extends Unit {
+    private $units = array();
+    function getComposite()
+    {
+        return $this;
+    }
+    protected function units() {
+        return $this->units;
+    }
+    function addUnit( Unit $unit) {
+        //第三个参数用来做 全值匹配 ===
+        if ( in_array( $unit, $this->units, true)) {
+            return;
+        }
+        $this->units[] = $unit;
+    }
+    function removeUnit(Unit $unit) {
+        $this->units = array_udiff( $this->units, array( $unit ), function( $a, $b ) { return ($a === $b) ? 0 : 1; });
+    }
+}
+
+class TroopCarrier extends CompositeUnit {
+    function bombardStrength() {
+    }
+}
+class Army extends CompositeUnit {
+    function bombardStrength() {
+    }
+}
+```
+
+这就是添加 getComposite() 方法的原因。该方法默认返回一个 null 值，它仅在 CompositeUnit 类中才返回 CompositeUnit 本身。所以如果该方法返回一个对象，那么便可以调用它的 addUnit 方法。下面是使用这种思路的客户端代码：
+```php
+class UnitScript {
+    static function joinExisting( Unit $newUnit, Unit $occupyingUnit ) {
+        $comp = '';
+        if ( ! is_null( $comp = $occupyingUnit->getComposite()) ) {
+            $comp->addUnit( $newUnit );
+        } else {
+            $comp = new Army();
+            $comp->addUnit( $occupyingUnit );
+            $comp->addUnit( $newUnit );
+        }
+        return $comp;
+    }
+}
+```
+joinExisting() 方法有两个 Unit 对象参数。第一个参数是一个区块的新来者，第二个参数是之前的占据者。如果第二个 Unit 对象是一个 CompositeUnit 对象，那么第一个 Unit 对象被添加给它。但如果不是的话，方法将会创建一个新Army 对象并将这两个对象添加到 Army 对象中。我们一开始并不知道 $occupyingUnit 参数是否包含 CompositeUnit 对象，但是通过调用 getComposite() 可以解决这个问题。若 getComposite 返回对象，那么我们可以直接添加新的 Unit 对象。如果不是，那么我们创建一个新的 Army 对象，并将两个 Unit 对象都添加给它。
+我们还可以进一步简化该模型，让 Unit::getComposite() 方法返回一个添加当前 Unit 的 Army 对象。或者也可以返回前面的模型，并用 Unit::addUnit() 方法来做同样的事情：创建一个 Army 对象，并将两个 Unit 对象都添加给它。虽然这样代码很简洁，但是这样假设你已经预先知道了部队单元所要聚合的组合类型。当你设计如 getComposite() 和 addUnit() 这样的方法时，业务逻辑将决定你所能做的假设。
+而这正是组合模式缺陷的症状之一。简化的前提是使所有的类都继承同一个基类。简化的好处有时会以降低对象类型安全为代价。模型变得越复杂，你就不得不手动进行越多的类型检查。比如我们有一个 Cavalry（骑兵）对象，假设游戏规则规定不能将一匹马放到运兵船上，在组合模式中我们并没有自动化的方式来强制执行这个规则：
+```php
+class TroopCarrier extends CompositeUnit {
+    function addUnit(Unit $unit) {
+        if ( $unit instanceof Cavalry ) {
+            //骑兵不能上运兵船，因为他携带的有马匹
+            throw new UnitException("不能携带马匹上运兵船");
+        }
+        parent::addUnit( $unit );
+    }
+
+    function bombardStrength() {
+        return 0;
+    }
+}
+```
+这里我们不得不使用 instanceof 操作符来检查传给 addUnit() 方法的对象类型。特殊对象越来越多，组合模式开始渐渐弊大于利。`在大部分局部对象可互换的情况下，组合模式才最适用。`
+需要担心的另外一个问题是组合操作的成本。 Army::bombardStrength() 方法便是典型的例子，该方法会逐级调用对象树中下级分支的方法。如果一个对象树中有大量子 Army 对象，一个简单的调用可能会导致系统崩溃。虽然 bombardStrength() 方法自身并不一定会带来多大的系统开销，但是如果一些局部对象为了获得返回值而执行一系列复杂的计算，那么会发生什么呢？解决问题的一个办法是在父级对象中缓存计算结果，这样可使接下来的调用减少系统开销。尽管如此，你还是需要小心地保证缓存值不会失效。因此你需要设计一个当对树进行操作时可移除过期缓存的策略，而这也许会要求你给子对象加上父对象的引用。
+
+### 7.1.4 组合模式小结
+
+如果你想像对待单个对象一样对待组合对象，那么组合模式十分有用。可能是因为组合对象本质上和局部对象相似，也可能 因为在环境中组合对象与局部对象的特征相同。因为组合模式是树型结构，所以对整体的操作会影响到局部，而通过组合，对客户端代码来说局部的数据又是透明的。组合模式使这些操作和查询对客户端代码透明。对象树可以方便地进行遍历。你也可以轻松地在组合结构中加入新的组件类型。但另一方面，组合模式又依赖于其组成部分的简单性。`组合模式不能很好地在关系数据库中保存数据，但却非常适合使用 XML 持久化`
+
+## 模式这一章实现进行不下去了，准备去参考 大话设计模式 一书
+
+## **8. 用 phpDocumentor 生成文档**
+
+搜索 phpDocumentor 扩展包
+
+## **9. 使用 PHPUnit 进行测试**
+
+[PHPUnit下载地址](http://www.phpunit.cn/ "PHPUnit地址")
