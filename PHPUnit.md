@@ -492,3 +492,238 @@ class DataTest extends TestCase {
 
 可以看到同样是第三行出现错误。以上就是 `使用返回迭代器对象的数据供给器`
 
+如果测试同时从 `@dataProvider` 方法和一个或多个 `@depends` 测试接收数据，那么来自于数据供给器的参数将先于来自所依赖的测试的。来自所依赖的测试的参数对于每个数据集都是一样的。
+
+例 2.8 在同一个测试中组合使用 `@depends` 和 `@dataProvider`
+
+```php
+
+use PHPUnit\Framework\TestCase;
+class DependencyAndDataProviderComboTest extends TestCase {
+    /**
+     * 数据供给器
+     * @return array
+     */
+    public function provider() {
+        return [['provider1'], ['provider2']];
+    }
+
+    /**
+     * 生产者1
+     * @return string
+     */
+    public function testProducerFirst() {
+        $this->assertTrue(true);
+        return 'first';
+    }
+
+    /**
+     * 生产者2
+     * @return string
+     */
+    public function testProducerSecond() {
+        $this->assertTrue(true);
+        return 'second';
+    }
+    /**
+     * 消费者 同时依赖 生产者1和生产者2以及数据供给器
+     * @depends testProducerFirst
+     * @depends testProducerSecond
+     * @dataProvider provider
+     */
+    public function testConsumer() {
+        $this->assertEquals(['provider1', 'first', 'second'], func_get_args());
+    }
+}
+
+```
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	...F                                                                4 / 4 (100%)
+	
+	Time: 63 ms, Memory: 8.00MB
+	
+	There was 1 failure:
+	
+	1) DependencyAndDataProviderComboTest::testConsumer with data set #1 ('provider2')
+	Failed asserting that two arrays are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	 Array (
+	-    0 => 'provider1'
+	+    0 => 'provider2'
+	     1 => 'first'
+	     2 => 'second'
+	 )
+	
+	/data/wwwroot/default/test.php:39
+	
+	FAILURES!
+	Tests: 4, Assertions: 4, Failures: 1.
+
+解释一下测试结果，测试过程中共有四次断言，前两次都是在生产者中进行的断言这个不再说明，主要是在测试方法中会进行两次断言，因为数据供给器提供了两个数据，所以需要遍历两次，第一个次遍历时得到的测试方法会得到三个参数的数组
+['provider1', 'first', 'second'], 所以第三次断言的时进行的数据比较是相等的，但是第四次断言时，参数数组第一个参数会是通过第二次遍历数据供给器所得到的 'provider2'，所以参数结构会变成 ['provider2', 'first', 'second']。因此最后一次的断言会发生错误。如果我们改变测试中的断言内容为以下方式
+
+	$this->assertEquals(['provider2', 'first', 'second'], func_get_args());
+
+会得到如下的测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	..F.                                                                4 / 4 (100%)
+	
+	Time: 68 ms, Memory: 8.00MB
+	
+	There was 1 failure:
+	
+	1) DependencyAndDataProviderComboTest::testConsumer with data set #0 ('provider1')
+	Failed asserting that two arrays are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	 Array (
+	-    0 => 'provider2'
+	+    0 => 'provider1'
+	     1 => 'first'
+	     2 => 'second'
+	 )
+	
+	/data/wwwroot/default/test.php:39
+	
+	FAILURES!
+	Tests: 4, Assertions: 4, Failures: 1.
+你会发现这时候给出的测试结果会是在第三次断言的时候发生错误，因为此时参数数组是 ['provider1', 'first', 'second'] 和断言要比较的数组不相同。
+
+这里需要注意的是为什么我测试依赖是放在最前边的，为什么参数结构中的第一个参数会是数据供给器中的数据？
+
+	@depends testProducerFirst
+	@depends testProducerSecond
+	@dataProvider provider
+
+这是最开始提到的 **如果测试同时从 `@dataProvider` 方法和一个或多个 `@depends` 测试接收数据，那么来自于数据供给器的参数将先于来自所依赖的测试的参数。**
+
+`注意：如果一个测试依赖于另外一个使用了数据供给器的测试，仅当被依赖的测试至少能在一组数据上成功时，依赖于它的测试才会运行。使用了数据供给器的测试，其运行结果是无法注入到依赖于此测试的其他测试中的。如例2.9`
+
+
+例 2.9 一个测试依赖于另外一个使用了数据供给器的测试
+
+```php
+use PHPUnit\Framework\TestCase;
+class DependencyAndDataProviderComboTest extends TestCase {
+    /**
+     * 数据供给器
+     * @return array
+     */
+    public function provider() {
+        return [['provider1'], ['provider2']];
+    }
+
+    /**
+     * 生产者1
+     * @dataProvider provider
+     * @return string
+     */
+    public function testProducerFirst() {
+        $this->assertEquals(['provider1'], func_get_args());
+        return 'first';
+    }
+
+    /**
+     * 消费者 同时依赖 生产者1和生产者2以及数据供给器
+     * @depends testProducerFirst
+     */
+    public function testConsumer() {
+        $this->assertEquals(['first'], func_get_args());
+    }
+}
+```
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	.FF                                                                 3 / 3 (100%)
+	
+	Time: 58 ms, Memory: 8.00MB
+	
+	There were 2 failures:
+	
+	1) DependencyAndDataProviderComboTest::testProducerFirst with data set #1 ('provider2')
+	Failed asserting that two arrays are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	 Array (
+	-    0 => 'provider1'
+	+    0 => 'provider2'
+	 )
+	
+	/data/wwwroot/default/test.php:21
+	
+	2) DependencyAndDataProviderComboTest::testConsumer
+	Failed asserting that two arrays are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	 Array (
+	-    0 => 'first'
+	+    0 => null
+	 )
+	
+	/data/wwwroot/default/test.php:30
+	
+	FAILURES!
+	Tests: 3, Assertions: 3, Failures: 2.
+
+数据供给器中有两个数据，在生产者1中会遍历产生两次断言，加上消费者的测试中有一个断言，总共三次断言，下面我们来分析这三次断言：
+第一次断言：接收到遍历数据供给器所得到的参数数组 ['prvider1']，所以第一次断言执行成功
+第二次断言：接收到遍历数据供给器所得到的参数数组 ['prvider2']，所以第二次断言执行失败
+第三次断言：尝试从依赖的测试中获取返回的参数数据，但是得到了 null,和first进行比较，第三次断言执行失败
+
+从第三次断言可以看出：使用了数据供给器的测试，其运行结果是无法注入到依赖于此测试的其他测试中的
+
+另外如果改变`生产者1`的断言内容为 `$this->assertEquals(['provider'], func_get_args())`会得到如下的结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	FFS                                                                 3 / 3 (100%)
+	
+	Time: 60 ms, Memory: 8.00MB
+	
+	There were 2 failures:
+	
+	1) DependencyAndDataProviderComboTest::testProducerFirst with data set #0 ('provider1')
+	Failed asserting that two arrays are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	 Array (
+	-    0 => 'provider'
+	+    0 => 'provider1'
+	 )
+	
+	/data/wwwroot/default/test.php:21
+	
+	2) DependencyAndDataProviderComboTest::testProducerFirst with data set #1 ('provider2')
+	Failed asserting that two arrays are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	 Array (
+	-    0 => 'provider'
+	+    0 => 'provider2'
+	 )
+	
+	/data/wwwroot/default/test.php:21
+	
+	FAILURES!
+	Tests: 3, Assertions: 2, Failures: 2, Skipped: 1.
+
+由于生产者1中的两次断言都未成功，所以跳过了依赖它的测试中的断言，就印证了上边的注意事项：
+
+`如果一个测试依赖于另外一个使用了数据供给器的测试，仅当被依赖的测试至少能在一组数据上成功时，依赖于它的测试才会运行。`
+
+
+`注意：所有数据供给器方法的执行都是在对 setUpBeforeClass 静态方法的调用和第一次对 setUp 方法的调用之前完成的。因此，无法在数据供给器中使用创建于这两个方法内的变量。这是必须的，这样PHPUnit才能计算测试的总数量。你可能不知道 setUpBeforeClass 和 setUp 是什么意思，后边会讲到先不要着急。`
