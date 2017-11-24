@@ -368,7 +368,7 @@ class DataTest extends TestCase {
 
 从第二行的进度就可以看出在断言失败和成功时的明显区别，这也是一个分析结果的一个小技巧（纯属自己瞎想，不喜勿喷）
 
-例 2.7 使用返回迭代器对象的数据供给器
+**例 2.7 使用返回迭代器对象的数据供给器**
 
 ```php
 use PHPUnit\Framework\TestCase;
@@ -494,7 +494,7 @@ class DataTest extends TestCase {
 
 如果测试同时从 `@dataProvider` 方法和一个或多个 `@depends` 测试接收数据，那么来自于数据供给器的参数将先于来自所依赖的测试的。来自所依赖的测试的参数对于每个数据集都是一样的。
 
-例 2.8 在同一个测试中组合使用 `@depends` 和 `@dataProvider`
+**例 2.8 在同一个测试中组合使用 `@depends` 和 `@dataProvider`**
 
 ```php
 
@@ -608,7 +608,7 @@ class DependencyAndDataProviderComboTest extends TestCase {
 `注意：如果一个测试依赖于另外一个使用了数据供给器的测试，仅当被依赖的测试至少能在一组数据上成功时，依赖于它的测试才会运行。使用了数据供给器的测试，其运行结果是无法注入到依赖于此测试的其他测试中的。如例2.9`
 
 
-例 2.9 一个测试依赖于另外一个使用了数据供给器的测试
+**例 2.9 一个测试依赖于另外一个使用了数据供给器的测试**
 
 ```php
 use PHPUnit\Framework\TestCase;
