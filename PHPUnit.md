@@ -136,7 +136,9 @@ class DependencyFailureTest extends TestCase {
     }
 }
 ```
+
 返回结果
+
 	phpunit --verbose DependencyFailureTest
 	PHPUnit 6.3.0 by Sebastian Bergmann and contributors.
 	FS
@@ -225,6 +227,7 @@ class DataTest extends TestCase {
 }
 ```
 得到如下测试结果
+
 	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
 	
 	...F                                                                4 / 4 (100%)
@@ -240,8 +243,10 @@ class DataTest extends TestCase {
 	
 	FAILURES!
 	Tests: 4, Assertions: 4, Failures: 1.
+
 可以看到 测试方法执行了四次，断言执行了四次，断言失败了一次。这也就解释了消费者在接收到数据供给器提供的数据时会对数据进行遍历处理，并依次进行断言判断，至于断言内容就是自定义的东西了。
 上例的断言内容实际上是：
+
 	根据数据供给器提供的数据进行遍历，会遍历四次。每次是数据分别是如下
 	[0, 0, 0] 第一次， 把前两个相加和后一个进行比较会得到：0 + 0 = 0
     [0, 1, 1] 第二次， 把前两个相加和后一个进行比较会得到：0 + 1 = 1
@@ -249,9 +254,11 @@ class DataTest extends TestCase {
     [1, 1, 3] 第四次， 把前两个相加和后一个进行比较会得到：1 + 1 != 3
 	最后一次不相等，所以会有一次断言失败的情况。
 
+
 这里测试另外一种情况就是，数据供给器提供的数据最开始的时候就有错误，测试方法会停止执行吗？看下测试结果：
 
 数据供给器提供的数据
+
 	[
 		[0, 0, 0],
 	    [1, 1, 1],
@@ -260,6 +267,7 @@ class DataTest extends TestCase {
 	]
 
 得到的测试结果
+
 	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
 	
 	.F.F                                                                4 / 4 (100%)
@@ -280,6 +288,7 @@ class DataTest extends TestCase {
 	
 	FAILURES!
 	Tests: 4, Assertions: 4, Failures: 2.
+
 从结果可以看出测试方法把数据集遍历了一遍，并标注出有错误的数据
 
 `注意：在使用大量数据集时，最好逐个用字符串键名对其命名，避免使用默认的数字键名。这样输出信息会更加详细些，其中将包含打断测试的数据集所对应的名称`
@@ -314,6 +323,7 @@ class DataTest extends TestCase {
 }
 ```
 测试结果
+
 	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
 	
 	.F.F                                                                4 / 4 (100%)
@@ -334,16 +344,20 @@ class DataTest extends TestCase {
 	
 	FAILURES!
 	Tests: 4, Assertions: 4, Failures: 2.
+
 从结果中可以清晰的看到错误数据的 key 为 data2和data4，这样你就可以快速定位问题所在
 另外你还会发现结果第二行有个很有意思的东西 `.F.F` 这个其实代表断言执行的次数以及断言结果，大写的 F 代表断言失败，点代表断言成功，从结果对照来看刚好是 data2 和 data4 断言失败
 如果把数据集改成如下结构你会看到不同的执行进度：
+
 	[
         'data1' => [0, 0, 0],
         'data2' => [1, 3, 4],
         'data3' => [1, 0, 1],
         'data4' => [1, 1, 2],
     ];
+
 结果
+
 	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
 	
 	....                                                                4 / 4 (100%)
@@ -452,11 +466,14 @@ class DataTest extends TestCase {
 }
 ```
 另外的 data.csv 文件的内容是（如何创建csv文件就不用再说了）：
+
 	0,0,0
 	0,1,1
 	1,0,1
 	1,1,3
+
 测试结果为：
+
 	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
 	
 	...F                                                                4 / 4 (100%)
@@ -472,5 +489,6 @@ class DataTest extends TestCase {
 	
 	FAILURES!
 	Tests: 4, Assertions: 4, Failures: 1.
+
 可以看到同样是第三行出现错误。以上就是 `使用返回迭代器对象的数据供给器`
 
