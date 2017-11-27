@@ -1196,4 +1196,88 @@ PHPUnit 区分 失败（failure）与错误（error）。失败指的是被违�
 	  --atleast-version <min>     Checks that version is greater than min and exits.
 	  --check-version             Check whether PHPUnit is the latest version.
 
+**phpunit UnitTest**
 
+运行由 UnitTest 类提供的测试。这个类应当在 UnitTest.php 源文件中声明。
+UnitTest 这个类必须满足以下两个条件之一：要么它继承自 PHPUnit\Framework\TestCase；要么它提供 public static suite() 方法，这个方法返回一个 PHPUnit_Framework_Test 对象，比如，一个 PHPUnit_Framework_TestSuite 类的实例。
+
+**phpunit UnitTest UnitTest.php**
+
+运行由 UnitTest 类提供的测试。这个类应当在指定的源文件中声明。
+
+**--coverage-clover**
+
+为运行的测试生成带有代码覆盖率信息的 XML 格式的日志文件。
+`注意：此功能仅当安装了 tokenizer 和 Xdebug 这个两个 PHP扩展后才可用。`
+
+**--coverage-crap4j**
+
+生成 crap4j 格式的代码覆盖率报告。
+`注意：此功能仅当安装了 tokenizer 和 Xdebug 这个两个 PHP扩展后才可用。`
+
+**--coverage-html**
+
+生成html格式的代码覆盖率报告
+`注意：此功能仅当安装了 tokenizer 和 Xdebug 这个两个 PHP扩展后才可用。`
+
+**--coverage-php**
+
+生成一个序列化的 PHP_CodeCoverage 对象，此对象包含有代码覆盖率信息
+`注意：此功能仅当安装了 tokenizer 和 Xdebug 这个两个 PHP扩展后才可用。`
+
+**--coverage-text**
+
+为运行的测试以人们可读的格式生成带有代码覆盖率信息的日志文件或命令行输出。
+`注意：此功能仅当安装了 tokenizer 和 Xdebug 这个两个 PHP扩展后才可用。`
+
+**--log-junit**
+
+为运行的测试生成 junitXML 格式的日志文件
+
+**--testdox-html 和 --textdoc-text**
+
+为运行的测试以html或txt格式生成文档
+
+**--filter**
+
+只运行名称与给定模式匹配的测试。如果模式为闭合包裹与分隔符，PHPUnit将用 / 分割符对其进行闭合包裹。
+测试名称将以一下格式之一进行匹配：
+
+**TestNamespace\TestCaseClass::testMethod**
+
+默认的测试名称格式等价于在测试方法内使用 __METHOD__ 魔术常量。
+
+**TestNamespace\TestCaseClass::testMethod with data set #0**
+
+当测试拥有数据供给器时，数据的每轮迭代都会将其当前索引附加在默认测试名称结尾处。
+
+**TestNamespace\TestCaseClass::testMethod with data set "my named data"**
+
+当测试拥有使用命名数据集的数据供给器时，数据的每轮迭代都会将当前名称附加在默认测试名称结尾处。
+
+**例 3.1 命名数据集**
+```php
+<?php
+namespace TestNamespace;
+
+require 'vendor/autoload.php';
+use PHPUnit\Framework\TestCase;
+
+class TestCaseClass extends TestCase {
+    /**
+     * @param $data
+     * @dataProvider provider
+     */
+    public function testMethod( $data ) {
+        $this->assertTrue( $data );
+    }
+
+    public function provider() {
+        return [
+            'my named data' => [true],
+            'my data' => [true]
+        ];
+    }
+}
+?>
+```
