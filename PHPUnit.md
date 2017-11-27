@@ -7,8 +7,12 @@
 	- [2.1 测试的依赖关系](#21-测试的依赖关系)
 	- [2.2 数据供给器](#22-数据供给器)
 	- [2.3 对异常进行测试](#23-对异常进行测试)
-	- 
-
+	- [2.4 对PHP错误进行测试](#24-对PHP错误进行测试)
+	- [2.5 对输出进行测试](#25-对输出进行测试)
+	- [2.6 错误相关信息的输出](#26-错误相关信息的输出)
+	- [2.7 边缘情况](#27-边缘情况)
+- [3. 命令行测试执行器](#3-命令行测试执行器)
+- 
 ## **1. 安装PHPUnit**
 
 我自己选择的单元测试环境是 PHPUnit6.2 + PHP7
@@ -734,3 +738,462 @@ class DependencyAndDataProviderComboTest extends TestCase {
 `@expectException` 标注来测试被测试代码中是否抛出了异常。
 
 例 2.10 使用 expectException() 方法
+```php
+use PHPUnit\Framework\TestCase;
+class ExceptionTest extends TestCase {
+    public function testException() {
+        $this->expectException(InvalidArgumentException::class);
+    }
+}
+```
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	F                                                                   1 / 1 (100%)
+	
+	Time: 62 ms, Memory: 8.00MB
+	
+	There was 1 failure:
+	
+	1) ExceptionTest::testException
+	Failed asserting that exception of type "InvalidArgumentException" is thrown.
+	
+	FAILURES!
+	Tests: 1, Assertions: 1, Failures: 1.
+
+除了 expectException() 方法，还有
+expectExceptionCode()
+expectExceptionMessage()
+expectExceptionMessageRegExp()
+可以用于为被测代码所抛出的异常建立预期。或者可以使用标注
+@expectException
+@expectExceptionCode
+@expectExceptionMessage
+@expectExceptionMessageRegExp
+
+**例 2.11 使用 @expectedException 标注**
+
+```php
+use PHPUnit\Framework\TestCase;
+class ExceptionTest extends TestCase {
+    /**
+     * @expectedException InvalidArgumentException
+     */
+    public function testException() {
+    }
+}
+```
+
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	F                                                                   1 / 1 (100%)
+	
+	Time: 48 ms, Memory: 8.00MB
+	
+	There was 1 failure:
+	
+	1) ExceptionTest::testException
+	Failed asserting that exception of type "InvalidArgumentException" is thrown.
+	
+	FAILURES!
+	Tests: 1, Assertions: 1, Failures: 1.
+
+## 2.4 对PHP错误进行测试
+
+默认情况下，PHPUnit将测试在执行中触发的PHP错误、警告、通知都转换为异常。利用这些异常，就可以，比如说预期测试将触发PHP错误。
+`注意：PHP的error_reporting运行时配置会对PHPUnit将哪些错误转换为异常有所限制。如果在这个特性上碰到问题，请确认PHP的配置中没有抑制想要测试的错误类型`
+
+**例 2.12 用 @expectedException 来预期PHP错误**
+
+```php
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Error; //注意引入错误类
+class ExpectedErrorTest extends TestCase {
+    /**
+     * 使用PHPUnit的错误类
+     * @expectedException Error
+     */
+    public function testFailingInclude() {
+        include 'not_existing_file.php';
+    }
+}
+```
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	E                                                                   1 / 1 (100%)
+	
+	Time: 58 ms, Memory: 8.00MB
+	
+	There was 1 error:
+	
+	1) ExpectedErrorTest::testFailingInclude
+	include(not_existing_file.php): failed to open stream: No such file or directory
+	
+	/data/wwwroot/default/test.php:13
+	/data/wwwroot/default/test.php:13
+	
+	ERRORS!
+	Tests: 1, Assertions: 0, Errors: 1.
+
+除了 Error 类还有 `PHPUnit\Framework\Error\Notice` 和 `PHPUnit\Framework\Error\Warning` 分
+别代表 PHP 通知与 PHP 警告。
+
+`注意：对异常进行测试是越明确越好的。对太笼统的类似进行测试有可能导致不良副作用。因此，不再允许用 @expectedException 或 setExpectedException() 对 Exception 类进行测试`
+
+如果测试依靠会触发错误的PHP函数，例如 fopen，有时候在测试中使用错误抑制符会很有用。通过抑制住错误通知，就能对返回值进行检查，否则错误通知将会导致抛出 PHPUnit\Framework\Error\Notice
+
+**例 2.13 对会引发PHP错误的代码的返回值进行测试**
+
+```php
+use PHPUnit\Framework\TestCase;
+
+class ErrorSuppressionTest extends TestCase {
+    public function testFileWriting() {
+        $writer = new FileWriter();
+        $this->assertFalse(@$writer->write('/is-not-writeable/file', 'stuff'));
+    }
+}
+class FileWriter {
+    public function write($file, $content) {
+        $file = fopen($file, 'w');
+        if ( $file == false ) {
+            return false;
+        }
+    }
+}
+```
+测试结果
+	
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	.                                                                   1 / 1 (100%)
+	
+	Time: 72 ms, Memory: 8.00MB
+	
+	OK (1 test, 1 assertion)
+
+如果不使用 @ 错误抑制符，此测试将会失败，并报告 fopen(....):failed to open stream:No such file or ....
+
+## 2.5 对输出进行测试
+
+有时候，想要断言某方法的运行过程中生成了预期的输出（例如，通过 echo 或 print）。PHPUnit\Framework\TestCase 类使用 PHP 的输出缓冲特性来为此提供必要的功能支持。
+
+**例 2.14 对函数或方法的输出进行测试**
+
+```php
+use PHPUnit\Framework\TestCase;
+class OutputTest extends TestCase {
+    public function testExpectFooActualFoo() {
+		//设定所预期的输出。如果没有产生预期的输出，测试将计为失败。
+        $this->expectOutputString('foo');
+        print 'foo';
+    }
+    public function testExpectBarActualBaz() {
+		//设定所预期的输出。如果没有产生预期的输出，测试将计为失败。
+        $this->expectOutputString('bar');
+        print 'baz';
+    }
+}
+```
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	.F                                                                  2 / 2 (100%)
+	
+	Time: 56 ms, Memory: 8.00MB
+	
+	There was 1 failure:
+	
+	1) OutputTest::testExpectBarActualBaz
+	Failed asserting that two strings are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	-'bar'
+	+'baz'
+	
+	FAILURES!
+	Tests: 2, Assertions: 2, Failures: 1.
+
+从测试结果可以看出，在 testExpectBarActualBaz 测试中，预期的输出为 bar 但是输出了 baz，所以测试结果提示失败
+
+**表 2.1 用于对输出进行测试的方法**
+|方法|含义|
+|------|------|
+|void expectOutputString(string $regularExpression);|设置输出预期应当与$expectedString 相等|
+|void expectOutputRegex( string $expectedString );|设置输出预期应当匹配正则表达式 $expectedString|
+|bool setOutputCallback( callable $callback );|设置回调函数，用来做诸如将实际输出规范化之类的动作|
+|string getActualOutput()|获取实际输出|
+
+`注意：在严格模式下，本身产生输出的测试将会失败`
+
+## 2.6 错误相关信息的输出
+
+当测试失败时，PHPUnit全力提供尽可能多的有助于找出问题所在的上下文信息
+
+**例 2.15 数组比较失败时生成的错误相关信息输出**
+
+```php
+use PHPUnit\Framework\TestCase;
+class ArrayDiffTest extends TestCase {
+    public function testEquality() {
+        $this->assertEquals(
+            [1, 2, 3, 4, 5, 6],
+            [1, 2,33, 4, 5, 6]
+        );
+    }
+}
+```
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	F                                                                   1 / 1 (100%)
+	
+	Time: 51 ms, Memory: 8.00MB
+	
+	There was 1 failure:
+	
+	1) ArrayDiffTest::testEquality
+	Failed asserting that two arrays are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	 Array (
+	     0 => 1
+	     1 => 2
+	-    2 => 3
+	+    2 => 33
+	     3 => 4
+	     4 => 5
+	     5 => 6
+	 )
+	
+	/data/wwwroot/default/test.php:10
+	
+	FAILURES!
+	Tests: 1, Assertions: 1, Failures: 1.
+
+在这个例子中只有一个地方不一样，但是错误信息会显示上下文，帮助你发现问题所在
+
+当生成的输出很长而难以阅读时，PHPUnit 将对其进行分割，并在每个差异附近提供少数几行上下文信息。
+
+**例 2.16 长数组比较失败时生成的错误相关信息输出**
+
+```php
+```
+
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	F                                                                   1 / 1 (100%)
+	
+	Time: 69 ms, Memory: 8.00MB
+	
+	There was 1 failure:
+	
+	1) LongArrayDiffTest::testEquality
+	Failed asserting that two arrays are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	     12 => 2
+	-    13 => 3
+	+    13 => 33
+	     14 => 4
+	     15 => 5
+	     16 => 6
+	 )
+	
+	/data/wwwroot/default/test.php:10
+	
+	FAILURES!
+	Tests: 1, Assertions: 1, Failures: 1.
+
+由于数组较大，所以错误信息不会显示完整的数组信息，只会获取上下文，供你参考
+
+## 2.7 边缘情况
+
+当比较失败时，PHPUnit为输入值建立文本表示，然后以此进行对比。这种实现导致存在差异指示中显示出来的问题可能比实际上存在的多。
+这种情况只出现在对数组或者对象使用 assertEquals 或其他 “弱” 比较函数时。
+
+例 2.17 当使用弱比较时在生成的差异结果中出现的边缘情况
+
+```php
+use PHPUnit\Framework\TestCase;
+class ArrayWeakComparisonTest extends TestCase {
+    public function testEquality() {
+        $this->assertEquals(1, '1');
+        $this->assertEquals(
+            [1, 2, 3, 4, 5, 6],
+            ['1', 2,33, 4, 5, 6]
+        );
+    }
+}
+```
+
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+
+	F                                                                   1 / 1 (100%)
+	
+	Time: 81 ms, Memory: 8.00MB
+	
+	There was 1 failure:
+	
+	1) ArrayWeakComparisonTest::testEquality
+	Failed asserting that two arrays are equal.
+	--- Expected
+	+++ Actual
+	@@ @@
+	 Array (
+	-    0 => 1
+	+    0 => '1'
+	     1 => 2
+	-    2 => 3
+	+    2 => 33
+	     3 => 4
+	     4 => 5
+	     5 => 6
+	 )
+	
+	/data/wwwroot/default/test.php:10
+	
+	FAILURES!
+	Tests: 1, Assertions: 2, Failures: 1.
+
+在这个例子中，第一个索引项中的 1 和 ‘1’ 在报告中视为不同过，虽然 assertEquals 认为这两个值是匹配的
+
+
+## **3. 命令行测试执行器**
+
+PHPUnit 命令行测试执行器可通过 phpunit 命令调用。下面的代码展示了如何使用 PHPUnit 命令行测试执行器类运行测试：
+
+```
+phpunit ArrayTest
+```
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	..                                                                  2 / 2 (100%)
+	
+	Time: 55 ms, Memory: 8.00MB
+	
+	OK (2 tests, 3 assertions)
+
+上面这个调用例子中，PHPUnit 命令行测试执行器将在当前工作目录中寻找 ArrayTest.php 源文件并执行。而在此源文件中应当能找到 ArrayTest 测试用例类，此类中的测试将被执行。
+对于每个测试的运行，PHPUnit命令行工具输出一个字符来指示进展：
+`.` 当一个测试方法执行成功时输出（每一个 . 代表一个测试方法）
+`F` 当测试方法运行过程中一个断言失败时输出。
+`E` 当测试方法运行过程中产生一个错误时输出。
+`R` 当测试被标记为有风险时输出（参考第 6 章 有风险的测试）
+`S` 当测试被跳过时输出（参考第 7 章 未完成的测试与跳过的测试）
+`I` 当测试被标记为不完整或为实现时输出（参考第 7 章 未完成的测试与跳过的测试）
+
+PHPUnit 区分 失败（failure）与错误（error）。失败指的是被违背了的 PHPUnit 断言，例如一个失败的 arrsertEquals() 调用。错误指的是意料之外的异常（exception）或PHP错误。这种差异已被证明在某些时候是非常有用的，因为错误往往比失败更容易修复。如果得到了一个非常长的问题列表，那么最好先对付错误，当错误全部修复了之后再试一次瞧瞧还有没有失败。
+
+## **3.1 命令行选项**
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+	
+	Usage: phpunit [options] UnitTest [UnitTest.php]
+	       phpunit [options] <directory>
+	
+	Code Coverage Options:
+	
+	  --coverage-clover <file>    Generate code coverage report in Clover XML format.
+	  --coverage-crap4j <file>    Generate code coverage report in Crap4J XML format.
+	  --coverage-html <dir>       Generate code coverage report in HTML format.
+	  --coverage-php <file>       Export PHP_CodeCoverage object to file.
+	  --coverage-text=<file>      Generate code coverage report in text format.
+	                              Default: Standard output.
+	  --coverage-xml <dir>        Generate code coverage report in PHPUnit XML format.
+	  --whitelist <dir>           Whitelist <dir> for code coverage analysis.
+	  --disable-coverage-ignore   Disable annotations for ignoring code coverage.
+	
+	Logging Options:
+	
+	  --log-junit <file>          Log test execution in JUnit XML format to file.
+	  --log-teamcity <file>       Log test execution in TeamCity format to file.
+	  --testdox-html <file>       Write agile documentation in HTML format to file.
+	  --testdox-text <file>       Write agile documentation in Text format to file.
+	  --testdox-xml <file>        Write agile documentation in XML format to file.
+	  --reverse-list              Print defects in reverse order
+	
+	Test Selection Options:
+	
+	  --filter <pattern>          Filter which tests to run.
+	  --testsuite <name,...>      Filter which testsuite to run.
+	  --group ...                 Only runs tests from the specified group(s).
+	  --exclude-group ...         Exclude tests from the specified group(s).
+	  --list-groups               List available test groups.
+	  --list-suites               List available test suites.
+	  --test-suffix ...           Only search for test in files with specified
+	                              suffix(es). Default: Test.php,.phpt
+	
+	Test Execution Options:
+	
+	  --dont-report-useless-tests Do not report tests that do not test anything.
+	  --strict-coverage           Be strict about @covers annotation usage.
+	  --strict-global-state       Be strict about changes to global state
+	  --disallow-test-output      Be strict about output during tests.
+	  --disallow-resource-usage   Be strict about resource usage during small tests.
+	  --enforce-time-limit        Enforce time limit based on test size.
+	  --disallow-todo-tests       Disallow @todo-annotated tests.
+	
+	  --process-isolation         Run each test in a separate PHP process.
+	  --globals-backup            Backup and restore $GLOBALS for each test.
+	  --static-backup             Backup and restore static attributes for each test.
+	
+	  --colors=<flag>             Use colors in output ("never", "auto" or "always").
+	  --columns <n>               Number of columns to use for progress output.
+	  --columns max               Use maximum number of columns for progress output.
+	  --stderr                    Write to STDERR instead of STDOUT.
+	  --stop-on-error             Stop execution upon first error.
+	  --stop-on-failure           Stop execution upon first error or failure.
+	  --stop-on-warning           Stop execution upon first warning.
+	  --stop-on-risky             Stop execution upon first risky test.
+	  --stop-on-skipped           Stop execution upon first skipped test.
+	  --stop-on-incomplete        Stop execution upon first incomplete test.
+	  --fail-on-warning           Treat tests with warnings as failures.
+	  --fail-on-risky             Treat risky tests as failures.
+	  -v|--verbose                Output more verbose information.
+	  --debug                     Display debugging information.
+	
+	  --loader <loader>           TestSuiteLoader implementation to use.
+	  --repeat <times>            Runs the test(s) repeatedly.
+	  --teamcity                  Report test execution progress in TeamCity format.
+	  --testdox                   Report test execution progress in TestDox format.
+	  --testdox-group             Only include tests from the specified group(s).
+	  --testdox-exclude-group     Exclude tests from the specified group(s).
+	  --printer <printer>         TestListener implementation to use.
+	
+	Configuration Options:
+	
+	  --bootstrap <file>          A "bootstrap" PHP file that is run before the tests.
+	  -c|--configuration <file>   Read configuration from XML file.
+	  --no-configuration          Ignore default configuration file (phpunit.xml).
+	  --no-coverage               Ignore code coverage configuration.
+	  --no-logging                Ignore logging configuration.
+	  --no-extensions             Do not load PHPUnit extensions.
+	  --include-path <path(s)>    Prepend PHP's include_path with given path(s).
+	  -d key[=value]              Sets a php.ini value.
+	  --generate-configuration    Generate configuration file with suggested settings.
+	
+	Miscellaneous Options:
+	
+	  -h|--help                   Prints this usage information.
+	  --version                   Prints the version and exits.
+	  --atleast-version <min>     Checks that version is greater than min and exits.
+	  --check-version             Check whether PHPUnit is the latest version.
+
+
