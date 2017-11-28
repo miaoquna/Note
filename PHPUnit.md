@@ -12,6 +12,8 @@
 	- [2.6 错误相关信息的输出](#26-错误相关信息的输出)
 	- [2.7 边缘情况](#27-边缘情况)
 - [3. 命令行测试执行器](#3-命令行测试执行器)
+	- [3.1 命令行选项](#31-命令行选项)
+- [4. 基境](#4-基境)
 - 
 ## **1. 安装PHPUnit**
 
@@ -1101,7 +1103,7 @@ phpunit ArrayTest
 
 PHPUnit 区分 失败（failure）与错误（error）。失败指的是被违背了的 PHPUnit 断言，例如一个失败的 arrsertEquals() 调用。错误指的是意料之外的异常（exception）或PHP错误。这种差异已被证明在某些时候是非常有用的，因为错误往往比失败更容易修复。如果得到了一个非常长的问题列表，那么最好先对付错误，当错误全部修复了之后再试一次瞧瞧还有没有失败。
 
-## **3.1 命令行选项**
+## 3.1 命令行选项
 
 	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
 	
@@ -1281,3 +1283,452 @@ class TestCaseClass extends TestCase {
 }
 ?>
 ```
+
+**/path/to/my/test.phpt**
+
+对于PHPT测试，其测试名称是文件系统路径
+
+**例 3.2 过滤器模式例子**
+- --filter 'TestNamespace\\TestCaseClass::testMethod'
+- --filter 'TestNamespace\\TestCaseClass'
+- --filter TestNamespace
+- --filter TestCaseClass
+- --filter testMethod
+- --filter '/::testMethod .*"my named data"/'
+- --filter '/::testMethod .*#5$/'
+- --filter '/::testMethod .*#(5|6|7)$/'
+
+在匹配数据供给器时有一些额外的快捷方式
+
+**例 3.3 过滤器的快捷方式**
+- --filter 'testMethod#2'
+- --filter 'testMethod#2-4'
+- --filter '#2'
+- --filter '#2-4'
+- --filter 'testMethod@my named data'
+- --filter 'testMethod@my.*data'
+- --filter '@my named data'
+- --filter '@my.*data'
+
+**--testsuite**
+
+只运行名称与给定模式匹配的测试套件
+
+**--group**
+
+只运行来自指定分组的测试。可以用 @group 标注为测试标记所属的分组。
+@author 标注是 @group 的一个别名，允许按作者来筛选测试。
+
+**--exclude-group**
+
+排除来自己指定分组的测试。可以用 @group 标注为测试标记所属的分组。
+
+**--list-groups**
+
+列出所有有效的测试分组
+
+**--test-suffix**
+
+只查找文件名以指定后缀结尾的测试文件
+
+**--report-useless-tests**
+
+更严格对待事实上不测试任何内容的测试
+
+**--strict-coverage**
+
+更严格对待意外的代码覆盖。
+
+**--strict-global-state**
+
+更严格对待全局状态篡改
+
+**--disallow-test-output**
+
+更严格对待测试执行期间产生的输出
+
+**--disallow-todo-tests**
+
+不执行文档注释块中含有 @todo 标注的测试
+
+**--enforce-time-limit**
+
+根据测试规模对其加上执行时长限制
+
+**--process-isolation**
+
+每个测试都在独立的PHP进程中运行
+
+**--no-globals-backup**
+
+不要备份并还原 $GLOBALS
+
+**--static-backup**
+
+备份并还原用户定义的类中的静态属性
+
+**--colors**
+
+使用彩色输出
+本选项有三个可能值：
+- never：完全不使用彩色输出。当未使用 --colors 选项时，这是默认值
+- auto：如果当前终端不支持彩色、或者输出被管道输出至其他命令、或输出被重定向至文件时，不使用彩色输出、其余情况使用彩色
+- always：总是使用彩色输出，即使当前终端不支持彩色、输出被管道输出至其他命令、或输出被重定向至文件。当使用了 --colors 选项但未指定任何值时，将选择 auto 做为其值
+
+**--colums**
+
+定义输出所使用的列数。如果将其值定义为 max，则使用当前终端所支持的最大列数
+
+**--stderr**
+
+选择输出到 STDERR 而非 STDOUT
+
+**--stop-on-error**
+首次错误出现后停止执行。
+
+**--stop-on-failure**
+首次错误或失败出现后停止执行。
+
+**--stop-on-risky**
+首次碰到有风险的测试时停止执行。
+
+**--stop-on-skipped**
+首次碰到跳过的测试时停止执行。
+
+**--stop-on-incomplete**
+首次碰到不完整的测试时停止执行。
+
+**--verbose**
+输出更详尽的信息，例如不完整或者跳过的测试的名称。
+
+**--debug**
+输出调试信息，例如当一个测试开始执行时输出其名称。
+
+**--loader**
+指定要使用的 PHPUnit_Runner_TestSuiteLoader 实现。
+
+标准的测试套件加载器将在当前工作目录和 PHP 的 include_path 配置指令中指定的每个目录内查找源文件。诸如 Project_Package_Class 这样的类名对应的源文件名为 Project/Package/Class.php。
+
+**--repeat**
+将测试重复运行指定次数。
+
+**--testdox**
+将测试进度以敏捷文档方式报告。更多细节请参见 第 12 章。
+
+**--printer**
+指定要使用的结果输出器(printer)。输出器类必须扩展 PHPUnit_Util_Printer 并且实现 PHPUnit_Framework_TestListener 接口。
+
+**--bootstrap**
+在测试前先运行一个 "bootstrap" PHP 文件。
+
+**--configuration, -c**
+从 XML 文件中读取配置信息。更多细节请参见附录 C。
+
+如果 phpunit.xml 或 phpunit.xml.dist （按此顺序）存在于当前工作目录并且未使用 --configuration，将自动从此文件中读取配置。
+
+**--no-configuration**
+忽略当前工作目录下的 phpunit.xml 与 phpunit.xml.dist。
+
+**--include-path**
+向 PHP 的 include_path 开头添加指定路径（可以多个）。
+
+**-d**
+设置指定的 PHP 配置选项的值。
+
+
+## **4. 基境**
+
+在编写测试时，最费时的部分之一是编写代码来将整个场景设置成某个已知的状态，并在测试结束后将其复原到初始状态。这个已知的状态称为测试的 基境。
+
+在 例 2.1 “用PHPUnit 测试数组操作” 中，基境十分简单，就是存储在 $stack 变量中的数组。然而，绝大多数时候基境均远比一个简单数组要复杂，用于建立基境的代码量也会随之增长。测试的真正内容就被淹没于建立基境带来的干扰中。当编写多个需要类似基境的测试时这个问题就变得更糟糕了。如果没有来自于测试框架的帮助，就不得不在写每一个测试时都将建立基境的代码重复一次。
+
+PHPUnit 支持共享建立基境的代码。在运行某个测试方法前，会调用一个名叫 setUp() 的模板方法。 setUp() 是创建测试所用对象的地方。当测试代码运行结束后，不管是成功还是失败，都会调用另外一个名叫 tearDown() 的模板方法。 tearDown() 是清理测试所用对象的地方。
+
+在 例 2.2 “用 @depends标注来表达依赖关系”中，我们在测试之间运用生产者-消费者关系来共享基境。这并非总是预期的方式，甚至有时是不可能的。例4.1 “用setUp()建立栈的基境” 展示了另外一个编写测试 StackTest的方式。在这个方式中，不再重用基境本身，而是重用建立基境的代码。首先声明一个实例变量，$stack用来代替方法内部的局部变量。然后把 array 基境的建立放到 setUp() 方法中。最后，从测试方法中去除冗余代码，在 assertEquals() 断言方法中使用新引入的实例变量 $this->stack 替代方法内部的局部变量 $stack。
+
+**例 4.1 用 setUp 建立的基境**
+```php
+<?php
+require 'vendor/autoload.php';
+use PHPUnit\Framework\TestCase;
+class StackTest extends TestCase {
+    protected $stack;
+    protected function setUp() {
+        $this->stack = [];
+    }
+    public function testEmpty() {
+        $this->assertTure(empty($this->stack));
+    }
+
+    public function testPush() {
+        array_push( $this->stackm, 'foo');
+        $this->assertEquals('foo', $this->stack[count($this->stack) - 1]);
+        $this->assertFalse(empty($this->stack));
+    }
+    public function testPop() {
+        array_push($this->stack, 'foo');
+        $this->assertEquals('foo', array_pop($this->stack));
+        $this->assertTrue(empty($this->stack));
+    }
+}
+?>
+```
+
+测试类的每个测试方法都会运行一次 setUp() 和 tearDown() 模板方法（同时，每个测试方法都是在一个全新的测试类实例上运行的）
+另外，setUpBeforeClass() 与 tearDownAfterClass() 模板方法将分别在测试用例类的第一个测试运行之前和测试用例类的最后一个测试运行之后调用。
+
+下面和这个例子中展示了测试用例类中所有可用的模板方法。
+
+**例 4.2 展示所有可用模板方法的例子**
+```php
+<?php
+require 'vendor/autoload.php';
+use PHPUnit\Framework\TestCase;
+class TemplateMethodsTest extends TestCase {
+    public static function setUpBeforeClass()
+    {
+        fwrite(STDOUT, __METHOD__."\n");
+    }
+    protected function setUp()
+    {
+        fwrite(STDOUT, __METHOD__."\n");
+    }
+    protected function assertPreConditions()
+    {
+        fwrite(STDOUT, __METHOD__."\n");
+    }
+    public function testOne() {
+        fwrite(STDOUT, __METHOD__."\n");
+        $this->assertTrue(true);
+    }
+    public function testTwo() {
+        fwrite(STDOUT, __METHOD__."\n");
+        $this->assertTrue(false);
+    }
+    protected function assertPostConditions()
+    {
+        fwrite(STDOUT, __METHOD__."\n");
+    }
+    protected function tearDown()
+    {
+        fwrite(STDOUT, __METHOD__."\n");
+    }
+    protected function onNotSuccessfulTest(Throwable $e)
+    {
+        fwrite(STDOUT, __METHOD__."\n");
+        throw $e;
+    }
+}
+?>
+```
+
+测试结果
+
+	PHPUnit 6.2.4 by Sebastian Bergmann and contributors.
+
+	TemplateMethodsTest::setUpBeforeClass
+	TemplateMethodsTest::setUp
+	TemplateMethodsTest::assertPreConditions
+	TemplateMethodsTest::testOne
+	TemplateMethodsTest::assertPostConditions
+	TemplateMethodsTest::tearDown
+	.TemplateMethodsTest::setUp
+	TemplateMethodsTest::assertPreConditions
+	TemplateMethodsTest::testTwo
+	TemplateMethodsTest::tearDown
+	TemplateMethodsTest::onNotSuccessfulTest
+	F                                                                  2 / 2 (100%)TemplateMethodsTest::tearDownAfterClass
+	
+	
+	Time: 52 ms, Memory: 8.00MB
+	
+	There was 1 failure:
+	
+	1) TemplateMethodsTest::testTwo
+	Failed asserting that false is true.
+	
+	/data/wwwroot/default/ArrayTest.php:23
+	
+	FAILURES!
+	Tests: 2, Assertions: 2, Failures: 1.
+
+
+分析执行顺序：
+- 开始执行
+- setUpBeforeClass()	测试用例类的第一个测试运行之前调用
+- setUp() 每个测试方法开始时都会调用
+- assertPreConditions 还不知道是干嘛用的
+- testOne 测试方法
+- assertPostConditions 还不知干嘛用的
+- tearDown 测试方法结束时执行
+- setUp 每个测试方法开始时都会调用
+- assertPreConditions 还不知道是干嘛用的
+- testTwo 测试方法
+- onNotSuccessfulTest 
+- tearDownAfterClass() 测试用例类的最后一个测试运行之后调用
+- 执行结束
+
+## 4.1 setUp() 多 tearDown() 少
+
+理论上说， setUp() 和 tearDown() 是精确对称的，但是实践中并非如此。实际上，只有在 setUp() 中分配了诸如文件或套接字之类的外部资源时才需要实现 tearDown()。如果setUp() 中只纯创建PHP对象，通常可以略过 tearDown()。不过，如果在 setUp() 中创建了大量对象，你可能想要在 tearDown() 中 unset() 指向这些对象的变量，这样它们就可以被垃圾回收机制回收掉。对测试用例对象的垃圾回收动作则是不可预知的。
+
+## 4.2 变体
+
+如果两个基境建立工作略有不同的测试该怎么办？有两种可能：
+- 如果两个 setUp() 代码仅有微小差异，把有差异的代码内容从 setUp() 移到测试方法内。
+- 如果两个 setUp() 是确实不一样，那么需要另外一个测试用例类。参考基境建立工作的不同之处来命名这个类
+
+## 4.3 基境共享
+
+有几个好的理由来在测试之间共享基境，但是大部分情况下，在测试之间共享基境的需求都源于某个未解决的设计问题。
+一个有实际意义的多测试间共享基境的例子是数据库链接：只能登录数据库一次，然后重用此链接，而不是每个测试都建立一个新的数据连接。这样能加快测试的运行。
+
+**例 4.3 在同一个测试套件内的不同测试之间共享基境**
+
+```php
+<?php
+require 'vendor/autoload.php';
+use PHPUnit\Framework\TestCase;
+class DatabaseTest extends TestCase {
+    protected static $db;
+    //所有测试方法执行前都会调用这个，类似 __construct
+    public static function setUpBeforeClass()
+    {
+        self::$db = new PDO('sqlite::memmory');
+    }
+	//测试用例执行结束后会调用这个方法
+    public static function tearDownAfterClass()
+    {
+        self::$db = null;
+    }
+}
+?>
+```
+需要反复强调的是：在测试之间共享基境会降低测试的价值。潜在的设计问题是对象之间并非松散耦合。如果解决掉潜在的设计问题并使用桩件（stub，参见第9章 测试替身）来编写测试，就能达成更好的结果，而不是在测试之间产生运行时依赖并错过改进设计的机会。
+
+## 4.4 全局状态
+
+使用单例模式的代码很难测试。使用全局变量的代码也一样。通常情况下，欲测试代码和全局变量之间会强烈耦合，并且其创建无法控制。另外一个问题是，一个测试对全局变量的改变可能会破坏另外一个测试。
+
+在PHP中，全局变量是这样运作的：
+- 全局变量 $foo = 'bar'; 实际上是存储为 $GLOBALS['foo'] = 'bar'; 的
+- $GLOBALS 这个变量是一种在任何变量作用域中都总是可用的内建变量
+- 在函数或者方法的变量作用域中，要访问全局变量 $foo，可以直接访问 $GLOBALS['foo']，或者用 global $foo；来创建一个引用全局变量的局部变量。
+
+除了全局变量，类的静态属性也是一种全局状态。默认情况下，PHPUnit用一种更改全局变量与超全局变量不会影响到其他测试的方式来运行所有测试。同时，还可以选择将这种隔离扩到类的静态属性。
+
+`注意：对全局变量和类的静态属性的备份与还原操作使用了 serialize() 与 unserialize()。某些类的实例化对象（比如PDO）无法序列化，因此如果把这样一个对象放在比如说 $GLOBALS 数组内时，备份操作就会出问题`
+
+在 “@backupGlobals” 一节中所讨论的 @backupGlobals 标注可以用来控制对全局变量的备份与还原操作。另外，还可以提供这样一个全局变量的黑名单，黑名单中的全局变量将被排除于备份与还原操作之外，就像这样：
+```php
+
+class MyTest extends TestCase {
+    protected $backupGlobalsBlacklist = ['globalVariable'];
+}
+
+```
+`注意：在方法（例如setUp方法）内对 $backupGlobalsBlacklist 属性进行设置是无效的`
+
+在 “@backupGlobalsBlacklist” 一节中提到的 @backupGlobalsBlacklist 标注可以用于在每个测试之前备份所有已声明类的静态属性值并在其后恢复。
+它所处理的并不只是测试类自身，而是在测试开始时已声明的所有类。它只作用于静态类属性，不作用于函数内声明的静态变量。
+`注意：只有启用了 @backupGlobalsBlacklist 的测试方法才在会在方法之前执行此操作。如果在此之前运行的某个没用启用 @backupGlobalsBlacklist 的测试方法改变了静态属性的值，那么被备份及还原的将会是这个改变后的值--而非初始声明时提供的默认值。PHP并不额外记录任何静态变量的声明时提供的初始默认值。`
+
+
+## **5. 组织测试**
+
+## 5.1 用文件系统来编排测试套件
+
+由于这种方法无法控制测试的运行顺序。这可能导致测试的依赖关系方面的问题。所以我使用了 XML配置来编排测试套件
+
+## 5.2 用XML配置来编排测试套件
+
+这个需要用到 phpunit.xml 章节的知识
+
+## **6. 有风险的测试**
+
+在执行测试时，PHPUnit可以进行一些额外的检查，主要是通过配置项来完成，具体如下
+
+## 6.1 无用测试
+具体参考手册XML配置项
+## 6.2 意外的代码覆盖
+具体参考手册XML配置项
+## 6.3 测试执行期间产生的输出
+具体参考手册XML配置项
+## 6.4 测试执行时长的超时限制
+具体参考手册XML配置项
+## 6.5 全局状态篡改
+具体参考手册XML配置项
+
+## **7. 未完成的测试与跳过的测试**
+
+## 7.1 未完成的测试
+
+例 7.1. 将测试标记为未完成
+```php
+<?php
+use PHPUnit\Framework\TestCase;
+class SampleTest extends TestCase
+{
+public function testSomething()
+{
+// 可选：如果愿意，在这里随便测试点什么。
+$this->assertTrue(true, '这应该已经是能正常工作的。');
+// 在这里停止，并将此测试标记为未完成。
+$this->markTestIncomplete(
+'此测试目前尚未实现。'
+);
+}
+}
+?>
+```
+
+表 7.1. 用于未完成的测试的 API
+
+|方法 |含义|
+|------|------|
+|void markTestIncomplete()| 将当前测试标记为未完成。|
+|void markTestIncomplete(string $message) | 将当前测试标记为未完成，并用 $message 作为说明信息。|
+
+## 7.2 跳过测试
+
+**例 7.2. 跳过某个测试**
+```php
+<?php
+use PHPUnit\Framework\TestCase;
+class DatabaseTest extends TestCase
+{
+protected function setUp()
+{
+if (!extension_loaded('mysqli')) {
+$this->markTestSkipped(
+'MySQLi 扩展不可用。'
+);
+}
+}
+public function testConnection()
+{
+// ...
+}
+}
+?>
+```
+
+表 7.2. 用于跳过测试的 API
+|方法 |含义|
+|------|------|
+|void markTestSkipped() | 将当前测试标记为已跳过。|
+|void markTestSkipped(string $message) | 将当前测试标记为已跳过，并用 $message 作为说明信息。|
+
+## 7.3 用 @requires 来跳过测试
+
+除了上述方法，还可以用 @requires 标注来表达测试用例的一些常见前提条件。
+
+表 7.3. 可能的 @requires 用法
+
+|类型 |可能的值| 范例 |其他范例|
+|-----|------|------|------|
+|PHP | 任何 PHP 版本标识符 | @requires PHP 5.3.3 | @requires PHP 7.1-dev |
+|PHPUnit | 任何 PHPUnit 版本标识符 | @requires PHPUnit 3.6.3 | @requires PHPUnit 4.6 |
+|OS | 用来对 PHP_OS [http://php.net/manual/en/reserved.constants.php#constant.phpos] 进行匹配的正则表达式 | @requires OS Linux | @requires OS WIN32|WINNT |
+|function| 任何对 function_exists[http://php.net/function_exists] 而言有效的参数|@requires function imap_open | @requires function ReflectionMethod::setAccessible |
+| extension | 任何扩展模块名，可以附带有版本标识符｜@requires extension　mysqli| @requires extension redis 2.2.0|
