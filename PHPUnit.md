@@ -14,7 +14,28 @@
 - [3. 命令行测试执行器](#3-命令行测试执行器)
 	- [3.1 命令行选项](#31-命令行选项)
 - [4. 基境](#4-基境)
-- 
+	- [4.1 setUp() 多 tearDown() 少](#41-setup-多-teardown-少)
+	- [4.2 变体](#42-变体)
+	- [4.3 基境共享](#43-基境共享)
+	- [4.4 全局状态](#44-全局状态)
+- [5. 组织测试](#5-组织测试)
+	- [5.1 用文件系统来编排测试套件](#51-用文件系统来编排测试套件)
+	- [5.2 用XML配置来编排测试套件](#52-用XML配置来编排测试套件)
+- [6. 有风险的测试](#6-有风险的测试)
+	- [6.1 无用测试](#61-无用测试)
+	- [6.2 意外的代码覆盖](#62-意外的代码覆盖)
+	- [6.3 测试执行期间产生的输出](#63-测试执行期间产生的输出)
+	- [6.4 测试执行时长的超时限制](#64-测试执行时长的超时限制)
+	- [6.5 全局状态篡改](#65-全局状态篡改)
+- [7. 未完成的测试与跳过的测试](#7-未完成的测试与跳过的测试)
+	- [7.1 未完成的测试](#71-未完成的测试)
+	- [7.2 跳过测试](#72-跳过测试)
+	- [7.3 用 @requires 来跳过测试](#73-用-@requires-来跳过测试)
+
+
+
+
+
 ## **1. 安装PHPUnit**
 
 我自己选择的单元测试环境是 PHPUnit6.2 + PHP7
@@ -1732,3 +1753,29 @@ public function testConnection()
 |OS | 用来对 PHP_OS [http://php.net/manual/en/reserved.constants.php#constant.phpos] 进行匹配的正则表达式 | @requires OS Linux | @requires OS WIN32|WINNT |
 |function| 任何对 function_exists[http://php.net/function_exists] 而言有效的参数|@requires function imap_open | @requires function ReflectionMethod::setAccessible |
 | extension | 任何扩展模块名，可以附带有版本标识符｜@requires extension　mysqli| @requires extension redis 2.2.0|
+
+**例 7.3. 用 @requires 来跳过测试**
+```php
+<?php
+use PHPUnit\Framework\TestCase;
+/**
+* @requires extension mysqli
+*/
+class DatabaseTest extends TestCase
+{
+/**
+* @requires PHP 5.3
+*/
+public function testConnection()
+{
+// 测试要求有 mysqli 扩展，并且 PHP >= 5.3
+}未完成的测试与跳过的测试
+37
+// ... 所有其他要求有 mysqli 扩展的测试
+}
+?>
+```
+
+## **8. 数据库测试**
+
+由于数据测试比较复杂，考虑到目前不会用到暂时先不严研究
